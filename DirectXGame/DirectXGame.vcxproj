@@ -156,6 +156,7 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="map\MapChipField.cpp" />
+    <ClCompile Include="player\Player.cpp" />
     <ClCompile Include="scene\GameScene.cpp" />
     <ClCompile Include="scene\TitleScene.cpp" />
     <ClCompile Include="WorldTransformEx.cpp" />
@@ -259,6 +260,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="map\MapChipField.h" />
+    <ClInclude Include="player\Player.h" />
     <ClInclude Include="scene\GameScene.h" />
     <ClInclude Include="scene\TitleScene.h" />
   </ItemGroup>

@@ -1,6 +1,7 @@
 #pragma once
 #include"KamataEngine.h"
 #include "../map/MapChipField.h"
+#include "../player/Player.h" 
 using namespace KamataEngine;
 /// <summary>
 /// ゲームシーン
@@ -41,6 +42,8 @@ private: // メンバ変数
 	MapChipField mapChipField_;   // 地图数据
     std::vector<std::vector<WorldTransform*>> mapBlocks_; // 存放生成的方块对象
 	void GenerateBlocks();
+
+	Player* player_ = nullptr;
 	/// <summary>
 	/// ゲームシーン用
 	/// </summary>

@@ -48,7 +48,7 @@ void GameScene::GenerateBlocks() {
 GameScene::GameScene() {}
 
 GameScene::~GameScene() {
-
+	delete player_;
 }
 
 void GameScene::Initialize() {
@@ -57,41 +57,49 @@ void GameScene::Initialize() {
 	input_ = Input::GetInstance();
 	camera_.Initialize();
 	camera_.translation_ = { -10.0f, 20.0f, -20.0f };
-    camera_.rotation_      = { 0.5f, 0.5f, 0.0f };
+	camera_.rotation_ = { 0.5f, 0.5f, 0.0f };
 
-    camera_.UpdateMatrix();
-    mapChipField_.LoadMapChipCsv("Resources/map.csv");
+	camera_.UpdateMatrix();
+	mapChipField_.LoadMapChipCsv("Resources/map.csv");
 
-    GenerateBlocks();
+	GenerateBlocks();
 
+	player_ = new Player();
+	player_->Initialize(&camera_, "player");
+
+	uint32_t topY = (mapChipField_.numBlockVertical_ > 0) ? (mapChipField_.numBlockVertical_ - 1) : 0;
+	float blockTopY = MapChipField::kBlockHeight;
+	float playerCenterY = blockTopY + player_->GetHeight() * 0.5f;
+	player_->SetByTileIndex(mapChipField_, 0, topY, playerCenterY);
 }
 
 void GameScene::Update() {
 
-	  ImGui::Begin("Camera Controller");
+	ImGui::Begin("Camera Controller");
 
-    static float pos[3];
-    static float rot[3];
+	static float pos[3];
+	static float rot[3];
 
-    // 同步当前值
-    pos[0] = camera_.translation_.x;
-    pos[1] = camera_.translation_.y;
-    pos[2] = camera_.translation_.z;
+	// 同步当前值
+	pos[0] = camera_.translation_.x;
+	pos[1] = camera_.translation_.y;
+	pos[2] = camera_.translation_.z;
 
-    rot[0] = camera_.rotation_.x;
-    rot[1] = camera_.rotation_.y;
-    rot[2] = camera_.rotation_.z;
+	rot[0] = camera_.rotation_.x;
+	rot[1] = camera_.rotation_.y;
+	rot[2] = camera_.rotation_.z;
 
-    // 拖动修改
-    if (ImGui::DragFloat3("Position", pos, 0.1f)) {
-        camera_.translation_ = { pos[0], pos[1], pos[2] };
-    }
-    if (ImGui::DragFloat3("Rotation", rot, 0.01f)) {
-        camera_.rotation_ = { rot[0], rot[1], rot[2] };
-    }
+	// 拖动修改
+	if (ImGui::DragFloat3("Position", pos, 0.1f)) {
+		camera_.translation_ = { pos[0], pos[1], pos[2] };
+	}
+	if (ImGui::DragFloat3("Rotation", rot, 0.01f)) {
+		camera_.rotation_ = { rot[0], rot[1], rot[2] };
+	}
 
-    ImGui::End();
+	ImGui::End();
 	camera_.UpdateMatrix();
+	if (player_) player_->Update();
 }
 
 
@@ -124,6 +132,7 @@ void GameScene::Draw() {
 			}
 		}
 	}
+	if (player_) player_->Draw();
 	/// <summary>
 	/// ここに3Dオブジェクトの描画処理を追加できる
 	/// </summary>
