@@ -154,6 +154,7 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Border.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="scene\GameScene.cpp" />
     <ClCompile Include="scene\TitleScene.cpp" />
@@ -256,6 +257,7 @@
     <None Include="Resources\shaders\Sprite.hlsli" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Border.h" />
     <ClInclude Include="scene\GameScene.h" />
     <ClInclude Include="scene\TitleScene.h" />
   </ItemGroup>
