@@ -19,6 +19,9 @@
     <Filter Include="scene">
       <UniqueIdentifier>{43c26b82-bbba-4829-9bfc-5d4934540306}</UniqueIdentifier>
     </Filter>
+    <Filter Include="map">
+      <UniqueIdentifier>{935b9ab8-d38e-40f3-a9fb-fc6c46d80b47}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -29,6 +32,12 @@
     </ClCompile>
     <ClCompile Include="scene\TitleScene.cpp">
       <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="map\MapChipField.cpp">
+      <Filter>map</Filter>
+    </ClCompile>
+    <ClCompile Include="WorldTransformEx.cpp">
+      <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -86,6 +95,9 @@
     </ClInclude>
     <ClInclude Include="scene\TitleScene.h">
       <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="map\MapChipField.h">
+      <Filter>map</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

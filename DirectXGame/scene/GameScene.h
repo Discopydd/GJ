@@ -1,5 +1,6 @@
 #pragma once
 #include"KamataEngine.h"
+#include "../map/MapChipField.h"
 using namespace KamataEngine;
 /// <summary>
 /// ゲームシーン
@@ -35,7 +36,11 @@ private: // メンバ変数
 	DirectXCommon* dxCommon_ = nullptr;
 	Input* input_ = nullptr;
 	Camera camera_;
+	KamataEngine::Model* model_ = nullptr;
 
+	MapChipField mapChipField_;   // 地图数据
+    std::vector<std::vector<WorldTransform*>> mapBlocks_; // 存放生成的方块对象
+	void GenerateBlocks();
 	/// <summary>
 	/// ゲームシーン用
 	/// </summary>

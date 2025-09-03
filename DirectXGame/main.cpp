@@ -15,7 +15,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	TitleScene* titleScene = nullptr;
 	// DirectXCommonインスタンスの取得
 	DirectXCommon* dxCommon = DirectXCommon::GetInstance();
-
+	ImGuiManager*imguiManager = ImGuiManager::GetInstance();
 	titleScene = new TitleScene();
 	titleScene->Initialize();
 
@@ -23,6 +23,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		if (KamataEngine::Update()) {
 			break;
 		}
+		imguiManager->Begin();
 		if (titleScene && !titleScene->IsSceneEnd()) {
 			titleScene->Update();
 		}
@@ -39,6 +40,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 				gameScene->Update();
 			}
 		}
+		imguiManager->End();
 		// 描画開始
 		dxCommon->PreDraw();
 		if (titleScene && !titleScene->IsSceneEnd()) {
@@ -47,6 +49,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		else if (gameScene) {
 			gameScene->Draw();
 		}
+		imguiManager->Draw();
 
 		// 描画終了
 		dxCommon->PostDraw();
