@@ -65,7 +65,7 @@ void GameScene::Initialize() {
 	GenerateBlocks();
 
 	player_ = new Player();
-	player_->Initialize(&camera_, "player");
+	player_->Initialize(&camera_,&mapChipField_, "player");
 
 	uint32_t topY = (mapChipField_.numBlockVertical_ > 0) ? (mapChipField_.numBlockVertical_ - 1) : 0;
 	float blockTopY = MapChipField::kBlockHeight;
