@@ -91,16 +91,14 @@ void Player::Update() {
     // 固定步长（若你有 deltaTime，请改成实际 dt）
     const float dt = 1.0f / 60.0f;
 
-    Input* input = Input::GetInstance();
-
     // ===== A) 处理朝向输入（可与移动并行） =====
     // 约定按键方向与朝向：右=+X, 左=-X, 上=+Z, 下=-Z
     bool hasYaw = false;
     float wantedYaw = 0.0f;
-    if (input->TriggerKey(DIK_RIGHT) || input->TriggerKey(DIK_D)) { wantedYaw = 0.0f;          hasYaw = true; }
-    if (input->TriggerKey(DIK_LEFT)  || input->TriggerKey(DIK_A)) { wantedYaw = kPI;           hasYaw = true; }
-    if (input->TriggerKey(DIK_UP)    || input->TriggerKey(DIK_W)) { wantedYaw = -kPI * 0.5f;    hasYaw = true; }
-    if (input->TriggerKey(DIK_DOWN)  || input->TriggerKey(DIK_S)) { wantedYaw = kPI * 0.5f;   hasYaw = true; }
+    if (input_->TriggerKey(DIK_RIGHT) || input_->TriggerKey(DIK_D)) { wantedYaw = 0.0f;          hasYaw = true; }
+    if (input_->TriggerKey(DIK_LEFT)  || input_->TriggerKey(DIK_A)) { wantedYaw = kPI;           hasYaw = true; }
+    if (input_->TriggerKey(DIK_UP)    || input_->TriggerKey(DIK_W)) { wantedYaw = -kPI * 0.5f;    hasYaw = true; }
+    if (input_->TriggerKey(DIK_DOWN)  || input_->TriggerKey(DIK_S)) { wantedYaw = kPI * 0.5f;   hasYaw = true; }
     if (hasYaw) {
         RequestFaceYaw(wantedYaw);
     }
@@ -136,10 +134,10 @@ void Player::Update() {
     int nx = static_cast<int>(ix_);
     int ny = static_cast<int>(iy_);
 
-    if (input->TriggerKey(DIK_RIGHT) || input->TriggerKey(DIK_D)) { nx += 1; }
-    if (input->TriggerKey(DIK_LEFT)  || input->TriggerKey(DIK_A)) { nx -= 1; }
-    if (input->TriggerKey(DIK_UP)    || input->TriggerKey(DIK_W)) { ny += 1; } // 若方向相反可对调+/-
-    if (input->TriggerKey(DIK_DOWN)  || input->TriggerKey(DIK_S)) { ny -= 1; }
+    if (input_->TriggerKey(DIK_RIGHT) || input_->TriggerKey(DIK_D)) { nx += 1; }
+    if (input_->TriggerKey(DIK_LEFT)  || input_->TriggerKey(DIK_A)) { nx -= 1; }
+    if (input_->TriggerKey(DIK_UP)    || input_->TriggerKey(DIK_W)) { ny += 1; } // 若方向相反可对调+/-
+    if (input_->TriggerKey(DIK_DOWN)  || input_->TriggerKey(DIK_S)) { ny -= 1; }
 
     // 没有移动输入 → 只更新矩阵（旋转已在上面处理）
     if (nx == static_cast<int>(ix_) && ny == static_cast<int>(iy_)) {
@@ -152,9 +150,14 @@ void Player::Update() {
         wt_.UpdateMatrix();
         return; // 超出边界：忽略输入
     }
-    // 阻止走进墙：
-    // if (map_->GetMapChipTypeByIndex(nx, ny) == MapChipType::kBlock) { wt_.UpdateMatrix(); return; }
-
+    // 阻止走进墙
+    {
+        MapChipType t = map_->GetMapChipTypeByIndex((uint32_t)nx, (uint32_t)ny);
+        if (t == MapChipType::kRaised) {
+            wt_.UpdateMatrix();
+            return;
+        }
+    }
     // 计算目标世界坐标（格中心 XZ + 顶面高度上的玩家中心 Y）
     Vector3 c = map_->GetMapChipPositionByIndex(static_cast<uint32_t>(nx), static_cast<uint32_t>(ny));
     Vector3 nextCenter = { c.x, playerCenterY, c.y };

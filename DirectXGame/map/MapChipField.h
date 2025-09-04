@@ -11,6 +11,7 @@ enum class MapChipType {
 	kBlank, // 空白
 	kBlock, // ブロック
 	kPortal,
+	kRaised,
 };
 
 struct MapChipData {
@@ -25,8 +26,8 @@ public:
 	static inline const float kBlockWidth = 2;
 	static inline const float kBlockHeight = 2;
 	// 縦横幅
-	uint32_t numBlockVertical_  = 0;
-	uint32_t numBlockHorizontal_  = 0;
+	uint32_t numBlockVertical_ = 0;
+	uint32_t numBlockHorizontal_ = 0;
 
 
 	void ResetMapChipData();
@@ -34,9 +35,9 @@ public:
 	MapChipType GetMapChipTypeByIndex(uint32_t xIndex, uint32_t yIndex)const;
 	Vector3 GetMapChipPositionByIndex(uint32_t xIndex, uint32_t yIndex)const;
 	struct IndexSet {
-	uint32_t xIndex;
-	uint32_t yIndex;
-};
+		uint32_t xIndex;
+		uint32_t yIndex;
+	};
 	IndexSet GetMapChipIndexByPosition(const Vector3& position)const;
 	struct Rect {
 		float left;
@@ -51,9 +52,13 @@ public:
 	}
 	Vector3 GetMapMaxPosition() const {
 		return Vector3(
-			numBlockHorizontal_  * kBlockWidth,
-			numBlockVertical_  * kBlockHeight,
+			numBlockHorizontal_ * kBlockWidth,
+			numBlockVertical_ * kBlockHeight,
 			0
 		);
 	}
+	// 在 class MapChipField 的 public 里补一个写接口
+	void SetMapChipTypeByIndex(uint32_t xIndex, uint32_t yIndex, MapChipType type);
+
+
 };

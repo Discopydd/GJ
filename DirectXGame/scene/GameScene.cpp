@@ -22,13 +22,13 @@ Vector2 WorldToScreen(const Vector3& worldPos, const Matrix4x4& view, const Matr
 void GameScene::GenerateBlocks() {
 	mapBlocks_.clear();
 	mapBlocks_.resize(mapChipField_.numBlockVertical_);
-
+	raisedBlocks_.clear();
 	for (uint32_t y = 0; y < mapChipField_.numBlockVertical_; y++) {
 		mapBlocks_[y].resize(mapChipField_.numBlockHorizontal_, nullptr);
 
 		for (uint32_t x = 0; x < mapChipField_.numBlockHorizontal_; x++) {
 			MapChipType type = mapChipField_.GetMapChipTypeByIndex(x, y);
-			if (type == MapChipType::kBlock) {
+			if (type == MapChipType::kBlock|| type == MapChipType::kPortal || type == MapChipType::kRaised) {
 				auto* wt = new WorldTransform();
                 wt->Initialize();
 
@@ -39,6 +39,13 @@ void GameScene::GenerateBlocks() {
                 wt->translation_ = { pos2D.x, tileHalf, pos2D.y };
 
                 mapBlocks_[y][x] = wt;
+				if (type == MapChipType::kRaised) {
+                    auto* raised = new WorldTransform();
+                    raised->Initialize();
+                    // 悬起一层：在 Y 再加一个方块高度
+                    raised->translation_ = { pos2D.x, tileHalf + MapChipField::kBlockHeight, pos2D.y };
+                    raisedBlocks_.push_back(RaisedBlock{ raised, x, y });
+                }
 			}
 		}
 	}
@@ -99,7 +106,55 @@ void GameScene::Update() {
 
 	ImGui::End();
 	camera_.UpdateMatrix();
+	if (dropTriggered_) {
+		// 方块中心落到地面时的Y（与你项目的格子高度保持一致）
+		const float groundCenterY = MapChipField::kBlockHeight * 0.5f;
+		const float eps = 1e-4f;
+
+		// 注意：手动递增迭代器，便于在落地后 erase
+		for (auto it = raisedBlocks_.begin(); it != raisedBlocks_.end(); /* 手动递增 */) {
+			auto& rb = *it; // rb: { WorldTransform* wt; uint32_t x, y; }
+
+			// — 下落 —
+			if (rb.wt) {
+				rb.wt->translation_.y -= dropSpeed_;   // dropSpeed_ 是你类里已有的速度（每帧下降量）
+				if (rb.wt->translation_.y <= groundCenterY + eps) {
+					// 到地：对齐
+					rb.wt->translation_.y = groundCenterY;
+
+					// ★ 关键：同步“逻辑地图”类型（把 kRaised 改成你需要的真实类型）
+					// 方案A：落地后仍阻挡
+					mapChipField_.SetMapChipTypeByIndex(rb.x, rb.y, MapChipType::kBlock);
+
+					// —— 若你的设计是“落地后让路”，用下面这一行替换上一行 —— 
+					// mapChipField_.SetMapChipTypeByIndex(rb.x, rb.y, MapChipType::kBlank);
+
+					// （可选）并入静态方块渲染列表（如果你有 mapBlocks_ 之类的容器）
+					// 例如：CreateCubeAt(mapChipField_.GetMapChipPositionByIndex(rb.x, rb.y));
+
+					// 从“下落列表”移除该块
+					it = raisedBlocks_.erase(it);
+					continue;
+				}
+			}
+
+			++it;
+		}
+
+		// （可选）当所有悬起块都已落地时，重置触发标记
+		if (raisedBlocks_.empty()) {
+			dropTriggered_ = false;
+		}
+	}
 	if (player_) player_->Update();
+	if (player_) {
+		uint32_t px = player_->TileX();
+		uint32_t py = player_->TileY();
+		MapChipType t = mapChipField_.GetMapChipTypeByIndex(px, py);
+		if (!dropTriggered_ && t == MapChipType::kPortal) {
+			dropTriggered_ = true;
+		}
+	}
 }
 
 
@@ -130,6 +185,12 @@ void GameScene::Draw() {
 				mapBlocks_[y][x]->UpdateMatrix();
 				model_->Draw(*mapBlocks_[y][x], camera_);
 			}
+		}
+	}
+	for (auto& rb : raisedBlocks_) {
+		if (rb.wt) {
+			rb.wt->UpdateMatrix();
+			model_->Draw(*rb.wt, camera_);
 		}
 	}
 	if (player_) player_->Draw();

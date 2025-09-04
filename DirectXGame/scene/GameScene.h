@@ -40,10 +40,21 @@ private: // メンバ変数
 	KamataEngine::Model* model_ = nullptr;
 
 	MapChipField mapChipField_;   // 地图数据
-    std::vector<std::vector<WorldTransform*>> mapBlocks_; // 存放生成的方块对象
+	std::vector<std::vector<WorldTransform*>> mapBlocks_; // 存放生成的方块对象
 	void GenerateBlocks();
 
 	Player* player_ = nullptr;
+
+	struct RaisedBlock {
+		WorldTransform* wt = nullptr;
+		uint32_t x = 0, y = 0;
+	};
+	std::vector<RaisedBlock> raisedBlocks_;
+	bool dropTriggered_ = false;   // 是否已触发“下落”
+	float dropSpeed_ = 0.25f;      // 每帧下降的距离（可调；按 60fps 约 0.25 * 60 = 15u/s）
+
+
+
 	/// <summary>
 	/// ゲームシーン用
 	/// </summary>

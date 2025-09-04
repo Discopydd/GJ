@@ -6,6 +6,7 @@ std::map<std::string, MapChipType> mapChipTable = {
     {"0", MapChipType ::kBlank},
     {"1", MapChipType::kBlock },
     {"2", MapChipType::kPortal },
+    {"3", MapChipType::kRaised },
 };
 
 }
@@ -98,4 +99,11 @@ MapChipField::Rect MapChipField::GetRectByIndex(uint32_t xIndex, uint32_t yIndex
     rect.top = center.y + kBlockHeight / 2;
 
     return rect;
+}
+
+void MapChipField::SetMapChipTypeByIndex(uint32_t xIndex, uint32_t yIndex, MapChipType type)
+{
+    if (yIndex >= mapChipData_.data.size()) return;
+    if (xIndex >= mapChipData_.data[yIndex].size()) return;
+    mapChipData_.data[yIndex][xIndex] = type;
 }
