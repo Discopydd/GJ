@@ -26,7 +26,7 @@ void MapChipField::LoadMapChipCsv(const std::string& filePath) {
     std::vector<std::vector<MapChipType>> tempData;
 
        while (std::getline(file, line)) {
-        if (line.empty()) continue; // 跳过空行
+        if (line.empty()) continue; // skip
         std::istringstream line_stream(line);
         std::vector<MapChipType> row;
         std::string word;
@@ -34,7 +34,7 @@ void MapChipField::LoadMapChipCsv(const std::string& filePath) {
             if (mapChipTable.contains(word)) {
                 row.push_back(mapChipTable[word]);
             } else {
-                row.push_back(MapChipType::kBlank); // 兜底：未知字符 = 空白
+                row.push_back(MapChipType::kBlank);
             }
         }
         if (!row.empty()) {
@@ -48,8 +48,6 @@ void MapChipField::LoadMapChipCsv(const std::string& filePath) {
         numBlockHorizontal_ = 0;
         return; // 空地图
     }
-
-    // 统一每行的长度（避免列数不一致）
     numBlockHorizontal_ = 0;
     for (auto& row : tempData) {
         if (row.size() > numBlockHorizontal_) {
@@ -58,7 +56,6 @@ void MapChipField::LoadMapChipCsv(const std::string& filePath) {
     }
     numBlockVertical_ = static_cast<uint32_t>(tempData.size());
 
-    // 重新分配并填充
     mapChipData_.data.resize(numBlockVertical_);
     for (uint32_t i = 0; i < numBlockVertical_; i++) {
         uint32_t reversedIndex = numBlockVertical_ - 1 - i;

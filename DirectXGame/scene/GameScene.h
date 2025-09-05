@@ -3,59 +3,38 @@
 #include "../map/MapChipField.h"
 #include "../player/Player.h" 
 using namespace KamataEngine;
+
 /// <summary>
-/// ゲームシーン
+/// ゲームシーン管理クラス
 /// </summary>
 class GameScene {
 
-public: // メンバ関数
-	/// <summary>
-	/// コンストクラタ
-	/// </summary>
-	GameScene();
+public:
+	GameScene();   // コンストラクタ
+	~GameScene();  // デストラクタ
 
-	/// <summary>
-	/// デストラクタ
-	/// </summary>
-	~GameScene();
+	void Initialize(); // 初期化
+	void Update();     // 毎フレーム更新
+	void Draw();       // 描画
 
-	/// <summary>
-	/// 初期化
-	/// </summary>
-	void Initialize();
-
-	/// <summary>
-	/// 毎フレーム処理
-	/// </summary>
-	void Update();
-
-	/// <summary>
-	/// 描画
-	/// </summary>
-	void Draw();
-private: // メンバ変数
+private:
 	DirectXCommon* dxCommon_ = nullptr;
 	Input* input_ = nullptr;
 	Camera camera_;
 	KamataEngine::Model* model_ = nullptr;
 
-	MapChipField mapChipField_;   // 地图数据
-	std::vector<std::vector<WorldTransform*>> mapBlocks_; // 存放生成的方块对象
-	void GenerateBlocks();
+	MapChipField mapChipField_;   // マップチップデータ
+	std::vector<std::vector<WorldTransform*>> mapBlocks_; // 生成されたブロック
+	void GenerateBlocks(); // ブロック生成
 
 	Player* player_ = nullptr;
 
+	// Raised（浮いているブロック）
 	struct RaisedBlock {
 		WorldTransform* wt = nullptr;
 		uint32_t x = 0, y = 0;
 	};
 	std::vector<RaisedBlock> raisedBlocks_;
-	bool dropTriggered_ = false;   // 是否已触发“下落”
-	float dropSpeed_ = 0.25f;      // 每帧下降的距离（可调；按 60fps 约 0.25 * 60 = 15u/s）
-
-
-
-	/// <summary>
-	/// ゲームシーン用
-	/// </summary>
+	bool dropTriggered_ = false;   // 落下開始フラグ
+	float dropSpeed_ = 0.25f;      // 落下速度
 };

@@ -57,7 +57,6 @@ public:
 			0
 		);
 	}
-	// 在 class MapChipField 的 public 里补一个写接口
 	void SetMapChipTypeByIndex(uint32_t xIndex, uint32_t yIndex, MapChipType type);
 
 
