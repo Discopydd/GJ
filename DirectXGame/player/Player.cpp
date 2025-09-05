@@ -155,7 +155,7 @@ void Player::Update() {
     // 壁・Raised禁止
     {
         MapChipType t = map_->GetMapChipTypeByIndex((uint32_t)nx, (uint32_t)ny);
-        if (t == MapChipType::kBlank || t == MapChipType::kRaised) {
+        if (t == MapChipType::kBlank || t == MapChipType::kRaised|| t == MapChipType::kSpike) {
             wt_.UpdateMatrix();
             return;
         }

@@ -32,13 +32,17 @@ static void DisposeRaised(std::vector<GameScene::RaisedBlock>& raised) {
     }
     raised.clear();
 }
+static void DisposeSpikes(std::vector<GameScene::SpikeTile>& spikes) {
+for (auto& st : spikes) { delete st.wt; st.wt = nullptr; }
+spikes.clear();
+}
 
 // マップからブロックを生成
 void GameScene::GenerateBlocks() {
     // 以前の生成物を破棄（リーク防止）
     DisposeMapBlocks(mapBlocks_);
     DisposeRaised(raisedBlocks_);
-
+    DisposeSpikes(spikeTiles_);
     mapBlocks_.resize(mapChipField_.numBlockVertical_);
 
     for (uint32_t y = 0; y < mapChipField_.numBlockVertical_; y++) {
@@ -46,7 +50,7 @@ void GameScene::GenerateBlocks() {
 
         for (uint32_t x = 0; x < mapChipField_.numBlockHorizontal_; x++) {
             MapChipType type = mapChipField_.GetMapChipTypeByIndex(x, y);
-            if (type == MapChipType::kBlock || type == MapChipType::kPortal || type == MapChipType::kRaised) {
+            if (type == MapChipType::kBlock || type == MapChipType::kPortal || type == MapChipType::kRaised || type == MapChipType::kSpike) {
                 auto* wt = new WorldTransform();
                 wt->Initialize();
                 Vector3 pos2D = mapChipField_.GetMapChipPositionByIndex(x, y);
@@ -59,13 +63,26 @@ void GameScene::GenerateBlocks() {
                     raised->Initialize();
 
                     float highY = tileHalf + MapChipField::kBlockHeight; // 懸空の高さ
-                    float lowY  = tileHalf;                               // 地面の高さ
+                    float lowY = tileHalf;                               // 地面の高さ
 
                     raised->translation_ = { pos2D.x, highY, pos2D.y };
                     raisedBlocks_.push_back(RaisedBlock{ raised, x, y, highY, lowY });
 
                     // 初期は「上に居る」状態（＝上昇完了）とみなす
                     isLowered_ = false;
+                }
+                else if (type == MapChipType::kSpike) {
+                    auto* spike = new WorldTransform();
+                    spike->Initialize();
+                    float lowY  = tileHalf + MapChipField::kBlockHeight;                       // 地面中心
+                    float highY = lowY + MapChipField::kBlockHeight * 5.0f; // 高空5格（可调）
+
+                    // 初始：在高空（隐藏）
+                    spike->translation_ = { pos2D.x, highY, pos2D.y };
+                    spikeTiles_.push_back(SpikeTile{ spike, x, y, false, false, -1, highY, lowY });
+
+                    // 初始地图格子可通过
+                    mapChipField_.SetMapChipTypeByIndex(x, y, MapChipType::kBlock);
                 }
             }
         }
@@ -86,6 +103,7 @@ GameScene::~GameScene() {
     // 生成物破棄
     DisposeRaised(raisedBlocks_);
     DisposeMapBlocks(mapBlocks_);
+    DisposeSpikes(spikeTiles_);
 }
 
 // 初期化
@@ -120,10 +138,9 @@ void GameScene::Initialize() {
 
 // 毎フレーム更新
 void GameScene::Update() {
-    // カメラ調整用UI
+    // ===== 相机调试 UI =====
     ImGui::Begin("Camera Controller");
-    static float pos[3];
-    static float rot[3];
+    static float pos[3], rot[3];
     pos[0] = camera_.translation_.x; pos[1] = camera_.translation_.y; pos[2] = camera_.translation_.z;
     rot[0] = camera_.rotation_.x;    rot[1] = camera_.rotation_.y;    rot[2] = camera_.rotation_.z;
     if (ImGui::DragFloat3("Position", pos, 0.1f)) { camera_.translation_ = { pos[0], pos[1], pos[2] }; }
@@ -131,18 +148,67 @@ void GameScene::Update() {
     ImGui::End();
     camera_.UpdateMatrix();
 
-    // ---- (A) Raised アニメーション ----
+    // ===== 玩家：只有未上锁时才允许更新（避免动画期间操作）=====
+    if (!playerLocked_) {
+        if (player_) player_->Update();
+    }
+
+    // ===== 检查是否“完全进入”Portal（必须停稳在该格中心）=====
+    bool onPortalTile = false;
+    bool fullyInsidePortal = false;
+    if (player_) {
+        uint32_t px = player_->TileX();
+        uint32_t py = player_->TileY();
+        MapChipType t = mapChipField_.GetMapChipTypeByIndex(px, py);
+        onPortalTile = (t == MapChipType::kPortal);
+
+        // 条件：在 Portal 格 && 玩家已停止补间
+        if (onPortalTile && !player_->IsMoving()) {
+            fullyInsidePortal = true;
+
+            // （可选更严谨几何判定）
+            // const auto& p = player_->GetWorldPosition();
+            // auto rect = mapChipField_.GetRectByIndex(px, py);
+            // const float eps = 1e-4f;
+            // fullyInsidePortal &= (p.x > rect.left - eps && p.x < rect.right + eps &&
+            //                       p.y > rect.bottom - eps && p.y < rect.top + eps);
+        }
+    }
+
+    // ===== Portal 边缘触发（从“未完全进入”->“完全进入”的瞬间）=====
+    if (fullyInsidePortal && !wasOnPortal_) {
+        bool started = false;
+
+        // 1) Raised：若当前没在动，切换方向并启动
+        if (!animating_ && !raisedBlocks_.empty()) {
+            animating_ = true;
+            animDir_   = isLowered_ ? +1 : -1;   // 地面→上升；高处→下落
+            started = true;
+        }
+
+        // 2) Spike：逐个切换（地面→上升；高空→下落）
+        for (auto& st : spikeTiles_) {
+            if (st.animating) continue;          // 正在动的别打断
+            st.animating = true;
+            st.dir = st.active ? +1 : -1;        // active(在地面)=上升；否则=下落
+            started = true;
+        }
+
+        if (started) {
+            playerLocked_ = true;                // 触发即上锁
+        }
+    }
+    wasOnPortal_ = fullyInsidePortal;            // 记录“完全在 Portal”的状态
+
+    // ===== 推进 Raised 动画 =====
     if (animating_) {
         bool allDone = true;
         for (auto& rb : raisedBlocks_) {
             if (!rb.wt) continue;
-
             const float targetY = (animDir_ < 0) ? rb.lowY : rb.highY;
             const float step    = moveSpeed_ * ((animDir_ < 0) ? -1.0f : 1.0f);
-
             rb.wt->translation_.y += step;
 
-            // 目標到達のクランプ
             if ((animDir_ < 0 && rb.wt->translation_.y <= targetY) ||
                 (animDir_ > 0 && rb.wt->translation_.y >= targetY)) {
                 rb.wt->translation_.y = targetY;
@@ -150,40 +216,48 @@ void GameScene::Update() {
                 allDone = false;
             }
         }
-
         if (allDone) {
             animating_ = false;
-            isLowered_ = (animDir_ < 0); // 今回の到達状態を記録
-
-            // マップデータへ同期（落下完了→Block / 上昇完了→Raised）
+            isLowered_ = (animDir_ < 0);
+            // 与你现有语义一致：落地→Block（可走地面），升起→Raised（悬空）
             for (auto& rb : raisedBlocks_) {
                 mapChipField_.SetMapChipTypeByIndex(
-                    rb.x, rb.y,
-                    isLowered_ ? MapChipType::kBlock : MapChipType::kRaised
+                    rb.x, rb.y, isLowered_ ? MapChipType::kBlock : MapChipType::kRaised
                 );
             }
         }
     }
 
-    // ---- (B) プレイヤー更新 ----
-    if (player_) player_->Update();
+    // ===== 推进 Spike 动画 =====
+    bool anySpikeAnimating = false;
+    for (auto& st : spikeTiles_) {
+        if (!st.animating || !st.wt) continue;
+        anySpikeAnimating = true;
 
-    // ---- (C) Portal 辺縁トリガー ----
-    bool onPortal = false;
-    if (player_) {
-        uint32_t px = player_->TileX();
-        uint32_t py = player_->TileY();
-        MapChipType t = mapChipField_.GetMapChipTypeByIndex(px, py);
-        onPortal = (t == MapChipType::kPortal);
+        const float targetY = (st.dir < 0) ? st.lowY : st.highY;  // 下落=lowY，上升=highY
+        const float step    = moveSpeed_ * ((st.dir < 0) ? -1.0f : 1.0f);
+        st.wt->translation_.y += step;
+
+        if ((st.dir < 0 && st.wt->translation_.y <= targetY) ||
+            (st.dir > 0 && st.wt->translation_.y >= targetY)) {
+            st.wt->translation_.y = targetY;
+            st.animating = false;
+
+            // 只有落地时阻挡；回到高空可通过
+            st.active = (st.dir < 0);
+            mapChipField_.SetMapChipTypeByIndex(
+                st.x, st.y, st.active ? MapChipType::kSpike : MapChipType::kBlock
+            );
+        }
     }
 
-    // 「前フレームは不在」→「今フレームは在」の瞬間かつ非アニメ中で Raised があるならトグル
-    if (onPortal && !wasOnPortal_ && !animating_ && !raisedBlocks_.empty()) {
-        animating_ = true;
-        animDir_   = isLowered_ ? +1 : -1; // 落ちてたら上げる、上に居たら落とす
+    // ===== 动画完成→解锁 =====
+    const bool anyAnimatingNow = animating_ || anySpikeAnimating;
+    if (playerLocked_ && !anyAnimatingNow) {
+        playerLocked_ = false;
     }
-    wasOnPortal_ = onPortal;
 }
+
 
 // 描画
 void GameScene::Draw() {
@@ -208,6 +282,13 @@ void GameScene::Draw() {
         if (rb.wt) {
             rb.wt->UpdateMatrix();
             obstacleModel_->Draw(*rb.wt, camera_);
+        }
+    }
+    // Spike（仅在显示时绘制 obstacle）
+    for (auto& st : spikeTiles_) {
+        if (st.wt) {
+            st.wt->UpdateMatrix();
+            obstacleModel_->Draw(*st.wt, camera_);
         }
     }
     if (player_) player_->Draw();

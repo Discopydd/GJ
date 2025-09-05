@@ -25,6 +25,15 @@ uint32_t x = 0, y = 0;
 float highY = 0.0f; // 懸空状態の中心Y（高い位置）
 float lowY = 0.0f; // 落下状態の中心Y（地面と同じ高さ）
 };
+struct SpikeTile {
+    WorldTransform* wt = nullptr;
+    uint32_t x = 0, y = 0;
+    bool active = false;   // 当前是否在“地面状态”（阻挡）
+    bool animating = false;
+    int dir = -1;          // -1: 下落, +1: 上升
+    float highY = 0.0f;    // 高空位置
+    float lowY = 0.0f;    // 落地位置
+};
 private:
 DirectXCommon* dxCommon_ = nullptr;
 Input* input_ = nullptr;
@@ -45,7 +54,7 @@ void GenerateBlocks();
 Player* player_ = nullptr;
 
 std::vector<RaisedBlock> raisedBlocks_;
-
+std::vector<SpikeTile> spikeTiles_;
 
 // ===== Raised の往復アニメーション管理 =====
 bool animating_ = false; // 今まさに上下アニメ中か
@@ -53,4 +62,7 @@ int animDir_ = -1; // -1: 下へ、+1: 上へ
 bool isLowered_ = false; // 直近の静止状態が「落下完了」なら true
 bool wasOnPortal_ = false; // 1フレーム前にポータル上だったか
 float moveSpeed_ = 0.25f; // 1フレームあたりのY移動量（元 dropSpeed_）
+
+bool playerLocked_ = false;  // 踩 Portal 后锁住玩家输入，动画全部完成时解锁
+
 };

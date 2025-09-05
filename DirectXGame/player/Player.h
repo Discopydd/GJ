@@ -30,6 +30,9 @@ public:
     float GetHeight() const { return height_; }
     // 移動にかかる時間を取得
     float GetMoveDuration() const { return MoveDuration; }
+    // Player.h 追加到 public 区域（不改现有逻辑）
+    bool IsMoving() const { return isMoving_; }                 // 是否仍在 1 格补间
+    const Vector3& GetWorldPosition() const { return wt_.translation_; }  // 当前世界中心
 
 private:
     // ===== 変換 / モデル / 依存関係 =====
