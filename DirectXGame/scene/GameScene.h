@@ -1,40 +1,56 @@
 #pragma once
-#include"KamataEngine.h"
+#include "KamataEngine.h"
 #include "../map/MapChipField.h"
-#include "../player/Player.h" 
+#include "../player/Player.h"
 using namespace KamataEngine;
+
 
 /// <summary>
 /// ゲームシーン管理クラス
 /// </summary>
 class GameScene {
-
 public:
-	GameScene();   // コンストラクタ
-	~GameScene();  // デストラクタ
+GameScene(); // コンストラクタ
+~GameScene(); // デストラクタ
 
-	void Initialize(); // 初期化
-	void Update();     // 毎フレーム更新
-	void Draw();       // 描画
 
+void Initialize(); // 初期化
+void Update(); // 毎フレーム更新
+void Draw(); // 描画
+
+// ===== Raised（浮いているブロック） =====
+struct RaisedBlock {
+WorldTransform* wt = nullptr;
+uint32_t x = 0, y = 0;
+float highY = 0.0f; // 懸空状態の中心Y（高い位置）
+float lowY = 0.0f; // 落下状態の中心Y（地面と同じ高さ）
+};
 private:
-	DirectXCommon* dxCommon_ = nullptr;
-	Input* input_ = nullptr;
-	Camera camera_;
-	KamataEngine::Model* model_ = nullptr;
+DirectXCommon* dxCommon_ = nullptr;
+Input* input_ = nullptr;
+Camera camera_{};
+Model* model_ = nullptr;
+Model* obstacleModel_ = nullptr;
+MapChipField mapChipField_; // マップチップデータ
 
-	MapChipField mapChipField_;   // マップチップデータ
-	std::vector<std::vector<WorldTransform*>> mapBlocks_; // 生成されたブロック
-	void GenerateBlocks(); // ブロック生成
 
-	Player* player_ = nullptr;
+// 生成されたブロック（地面などの常設）
+std::vector<std::vector<WorldTransform*>> mapBlocks_;
 
-	// Raised（浮いているブロック）
-	struct RaisedBlock {
-		WorldTransform* wt = nullptr;
-		uint32_t x = 0, y = 0;
-	};
-	std::vector<RaisedBlock> raisedBlocks_;
-	bool dropTriggered_ = false;   // 落下開始フラグ
-	float dropSpeed_ = 0.25f;      // 落下速度
+
+// マップからブロックを生成
+void GenerateBlocks();
+
+
+Player* player_ = nullptr;
+
+std::vector<RaisedBlock> raisedBlocks_;
+
+
+// ===== Raised の往復アニメーション管理 =====
+bool animating_ = false; // 今まさに上下アニメ中か
+int animDir_ = -1; // -1: 下へ、+1: 上へ
+bool isLowered_ = false; // 直近の静止状態が「落下完了」なら true
+bool wasOnPortal_ = false; // 1フレーム前にポータル上だったか
+float moveSpeed_ = 0.25f; // 1フレームあたりのY移動量（元 dropSpeed_）
 };
