@@ -26,8 +26,8 @@ void Player::Initialize(const Camera* camera, const MapChipField* map,const char
         model_ = Model::CreateFromOBJ("cube", true);
     }
 
-    // 初期朝向 +X
-    currentYaw_ = 0.0f;
+    // 初期朝向 +Z
+    currentYaw_ = kPI * 0.5f;
     startYaw_ = targetYaw_ = currentYaw_;
     wt_.rotation_.y = currentYaw_;
 }
@@ -180,4 +180,12 @@ void Player::Draw() {
     if (model_ && camera_) {
         model_->Draw(wt_, *camera_);
     }
+}
+
+void Player::ResetOrientation()
+{
+    currentYaw_ = startYaw_ = targetYaw_ = kPI * 0.5f; // +Z 方向
+    isRotating_ = false;
+    rotateT_ = 0.0f;
+    wt_.rotation_.y = currentYaw_;
 }

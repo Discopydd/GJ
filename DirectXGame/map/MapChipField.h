@@ -12,7 +12,8 @@ enum class MapChipType {
 	kBlock, // ブロック
 	kPortal,
 	kRaised,
-	kSpike
+	kSpike,
+	kGoal
 };
 
 struct MapChipData {

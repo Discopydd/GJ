@@ -25,6 +25,9 @@
     <Filter Include="player">
       <UniqueIdentifier>{84591020-c0d1-41ef-ba4e-dc6ad79a30bc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="skydome">
+      <UniqueIdentifier>{e3f4477f-fd21-47bf-a5b0-347dbed49cfd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -44,6 +47,9 @@
     </ClCompile>
     <ClCompile Include="player\Player.cpp">
       <Filter>player</Filter>
+    </ClCompile>
+    <ClCompile Include="skydome\Skydome.cpp">
+      <Filter>skydome</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -107,6 +113,9 @@
     </ClInclude>
     <ClInclude Include="player\Player.h">
       <Filter>player</Filter>
+    </ClInclude>
+    <ClInclude Include="skydome\Skydome.h">
+      <Filter>skydome</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

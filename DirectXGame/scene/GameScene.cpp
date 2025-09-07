@@ -50,7 +50,7 @@ void GameScene::GenerateBlocks() {
 
         for (uint32_t x = 0; x < mapChipField_.numBlockHorizontal_; x++) {
             MapChipType type = mapChipField_.GetMapChipTypeByIndex(x, y);
-            if (type == MapChipType::kBlock || type == MapChipType::kPortal || type == MapChipType::kRaised || type == MapChipType::kSpike) {
+            if (type == MapChipType::kBlock || type == MapChipType::kPortal || type == MapChipType::kRaised || type == MapChipType::kSpike|| type == MapChipType::kGoal) {
                 auto* wt = new WorldTransform();
                 wt->Initialize();
                 Vector3 pos2D = mapChipField_.GetMapChipPositionByIndex(x, y);
@@ -93,12 +93,37 @@ void GameScene::GenerateBlocks() {
     obstacleModel_ = Model::CreateFromOBJ("obstacle", true);
 }
 
+void GameScene::LoadLevel(const std::string& path)
+{
+    // 重新加载地图并重建方块
+    currentMapPath_ = path;
+
+    mapChipField_.LoadMapChipCsv(currentMapPath_);
+    GenerateBlocks();
+
+
+    // 重置玩家到起点（这里仍放最上行左侧）
+    uint32_t topY = (mapChipField_.numBlockVertical_ > 0) ? (mapChipField_.numBlockVertical_ - 1) : 0;
+    float blockTopY = MapChipField::kBlockHeight;
+    float playerCenterY = blockTopY + player_->GetHeight() * 0.5f;
+    player_->SetByTileIndex(mapChipField_, 0, topY, playerCenterY);
+    player_->ResetOrientation();
+
+    // 恢复状态
+    animating_ = false; isLowered_ = false; wasOnPortal_ = false; playerLocked_ = false; goalReached_ = false;
+
+    // 重置步数
+    remainingSteps_ = initialSteps_;
+    lastPlayerMoving_ = false;
+}
+
 GameScene::GameScene() {}
 
 GameScene::~GameScene() {
-    // プレイヤー
-    delete player_;
-    player_ = nullptr;
+    delete player_;          player_ = nullptr;
+    delete skydome_;         skydome_ = nullptr;
+    delete model_;           model_ = nullptr;        // cube
+    delete obstacleModel_;   obstacleModel_ = nullptr;
 
     // 生成物破棄
     DisposeRaised(raisedBlocks_);
@@ -115,9 +140,11 @@ void GameScene::Initialize() {
     camera_.translation_ = { -10.0f, 20.0f, -20.0f };
     camera_.rotation_ = { 0.5f, 0.5f, 0.0f };
     camera_.UpdateMatrix();
-
+    skydome_ = new Skydome();
+    skydome_->Initialize(&camera_, "Skydome");
     // マップ読み込み
-    mapChipField_.LoadMapChipCsv("Resources/map.csv");
+    currentMapPath_ = "Resources/map.csv";
+    mapChipField_.LoadMapChipCsv(currentMapPath_);
     GenerateBlocks();
 
     // プレイヤー初期化
@@ -130,10 +157,12 @@ void GameScene::Initialize() {
     player_->SetByTileIndex(mapChipField_, 0, topY, playerCenterY);
 
     // 状態初期化
-    animating_   = false;
-    animDir_     = -1;
-    isLowered_   = false; // Raised が存在すれば初期は上にいる
+    animating_ = false;
+    animDir_ = -1;
+    isLowered_ = false; // Raised が存在すれば初期は上にいる
     wasOnPortal_ = false;
+    remainingSteps_ = initialSteps_;
+    lastPlayerMoving_ = false;
 }
 
 // 毎フレーム更新
@@ -144,24 +173,54 @@ void GameScene::Update() {
     pos[0] = camera_.translation_.x; pos[1] = camera_.translation_.y; pos[2] = camera_.translation_.z;
     rot[0] = camera_.rotation_.x;    rot[1] = camera_.rotation_.y;    rot[2] = camera_.rotation_.z;
     if (ImGui::DragFloat3("Position", pos, 0.1f)) { camera_.translation_ = { pos[0], pos[1], pos[2] }; }
-    if (ImGui::DragFloat3("Rotation", rot, 0.01f)) { camera_.rotation_    = { rot[0], rot[1], rot[2] }; }
+    if (ImGui::DragFloat3("Rotation", rot, 0.01f)) { camera_.rotation_ = { rot[0], rot[1], rot[2] }; }
     ImGui::End();
     camera_.UpdateMatrix();
-
+    if (skydome_) skydome_->Update();
     // ===== 玩家：只有未上锁时才允许更新（避免动画期间操作）=====
-    if (!playerLocked_) {
-        if (player_) player_->Update();
+    if (player_) {
+        // 记录更新前的“是否在移动”状态，用于检测 false->true 的边沿
+        bool wasMoving = player_->IsMoving();  // 需要 Player.h 的 IsMoving():contentReference[oaicite:3]{index=3}
+
+        if (!playerLocked_) {
+            // 步数门控：
+            // 1) 若还有步数，允许接收输入并可能开始新的移动；
+            // 2) 若步数为0，但玩家“还在补间中”，也要继续Update以完成该次移动，避免卡在半格。
+            if (remainingSteps_ > 0 || wasMoving) {
+                player_->Update();  // 可能会在本帧把 isMoving_ 置为 true:contentReference[oaicite:4]{index=4}
+            }
+        }
+
+        // 记录更新后的“是否在移动”
+        bool nowMoving = player_->IsMoving();
+
+        // 扣步：当且仅当从 未移动 -> 移动 的瞬间 扣1步
+        if (!wasMoving && nowMoving) {
+            remainingSteps_ = (std::max)(0, remainingSteps_ - 1);
+        }
+
+        // 保存当前状态供下一帧比较
+        lastPlayerMoving_ = nowMoving;
     }
 
+    // === （可选）步数显示：ImGui ===
+    ImGui::Begin("Game Info");
+    ImGui::Text("Steps: %d / %d", remainingSteps_, initialSteps_);
+    ImGui::End();
+    // ===== 按 R 重新开始 =====
+    if (input_->TriggerKey(DIK_R)) {
+        LoadLevel(currentMapPath_);  // 重载当前关卡
+        return;                      // 立即返回，避免继续执行本帧其他逻辑
+    }
     // ===== 检查是否“完全进入”Portal（必须停稳在该格中心）=====
-    bool onPortalTile = false;
-    bool fullyInsidePortal = false;
+    bool onPortalTile = false, fullyInsidePortal = false;
+    bool onGoalTile = false, fullyInsideGoal = false;
     if (player_) {
         uint32_t px = player_->TileX();
         uint32_t py = player_->TileY();
         MapChipType t = mapChipField_.GetMapChipTypeByIndex(px, py);
         onPortalTile = (t == MapChipType::kPortal);
-
+        onGoalTile = (t == MapChipType::kGoal);
         // 条件：在 Portal 格 && 玩家已停止补间
         if (onPortalTile && !player_->IsMoving()) {
             fullyInsidePortal = true;
@@ -173,6 +232,9 @@ void GameScene::Update() {
             // fullyInsidePortal &= (p.x > rect.left - eps && p.x < rect.right + eps &&
             //                       p.y > rect.bottom - eps && p.y < rect.top + eps);
         }
+        if (onGoalTile && !player_->IsMoving()) {
+            fullyInsideGoal = true;
+        }
     }
 
     // ===== Portal 边缘触发（从“未完全进入”->“完全进入”的瞬间）=====
@@ -182,7 +244,7 @@ void GameScene::Update() {
         // 1) Raised：若当前没在动，切换方向并启动
         if (!animating_ && !raisedBlocks_.empty()) {
             animating_ = true;
-            animDir_   = isLowered_ ? +1 : -1;   // 地面→上升；高处→下落
+            animDir_ = isLowered_ ? +1 : -1;   // 地面→上升；高处→下落
             started = true;
         }
 
@@ -199,20 +261,32 @@ void GameScene::Update() {
         }
     }
     wasOnPortal_ = fullyInsidePortal;            // 记录“完全在 Portal”的状态
-
+    // ===== Goal 触发：完全进入 Goal 即通关/切关 =====
+    if (fullyInsideGoal && !goalReached_) {
+        goalReached_ = true;
+        playerLocked_ = true;                    // 切关时禁用输入防抖
+        if (!nextMapPath_.empty()) {
+            LoadLevel(nextMapPath_);             // 切到下一关
+        }
+        else {
+            LoadLevel(currentMapPath_);          // 没配置下一关就重载当前关
+        }
+        return;                                  // 本帧到此结束
+    }
     // ===== 推进 Raised 动画 =====
     if (animating_) {
         bool allDone = true;
         for (auto& rb : raisedBlocks_) {
             if (!rb.wt) continue;
             const float targetY = (animDir_ < 0) ? rb.lowY : rb.highY;
-            const float step    = moveSpeed_ * ((animDir_ < 0) ? -1.0f : 1.0f);
+            const float step = moveSpeed_ * ((animDir_ < 0) ? -1.0f : 1.0f);
             rb.wt->translation_.y += step;
 
             if ((animDir_ < 0 && rb.wt->translation_.y <= targetY) ||
                 (animDir_ > 0 && rb.wt->translation_.y >= targetY)) {
                 rb.wt->translation_.y = targetY;
-            } else {
+            }
+            else {
                 allDone = false;
             }
         }
@@ -235,7 +309,7 @@ void GameScene::Update() {
         anySpikeAnimating = true;
 
         const float targetY = (st.dir < 0) ? st.lowY : st.highY;  // 下落=lowY，上升=highY
-        const float step    = moveSpeed_ * ((st.dir < 0) ? -1.0f : 1.0f);
+        const float step = moveSpeed_ * ((st.dir < 0) ? -1.0f : 1.0f);
         st.wt->translation_.y += step;
 
         if ((st.dir < 0 && st.wt->translation_.y <= targetY) ||
@@ -270,6 +344,7 @@ void GameScene::Draw() {
 
     // 3Dオブジェクト描画
     Model::PreDraw();
+    if (skydome_) skydome_->Draw();
     for (uint32_t y = 0; y < mapBlocks_.size(); y++) {
         for (uint32_t x = 0; x < mapBlocks_[y].size(); x++) {
             if (mapBlocks_[y][x]) {

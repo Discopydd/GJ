@@ -33,6 +33,7 @@ public:
     // Player.h 追加到 public 区域（不改现有逻辑）
     bool IsMoving() const { return isMoving_; }                 // 是否仍在 1 格补间
     const Vector3& GetWorldPosition() const { return wt_.translation_; }  // 当前世界中心
+    void ResetOrientation();
 
 private:
     // ===== 変換 / モデル / 依存関係 =====

@@ -7,7 +7,8 @@ std::map<std::string, MapChipType> mapChipTable = {
     {"1", MapChipType::kBlock },
     {"2", MapChipType::kPortal },
     {"3", MapChipType::kRaised },
-    {"4", MapChipType::kSpike }
+    {"4", MapChipType::kSpike },
+    {"5", MapChipType::kGoal }
 };
 
 }
