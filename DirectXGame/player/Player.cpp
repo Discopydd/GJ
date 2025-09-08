@@ -98,10 +98,10 @@ void Player::Update() {
     // A) 回転入力処理
     bool hasYaw = false;
     float wantedYaw = 0.0f;
-    if (input_->TriggerKey(DIK_RIGHT) || input_->TriggerKey(DIK_D)) { wantedYaw = 0.0f;        hasYaw = true; }
-    if (input_->TriggerKey(DIK_LEFT)  || input_->TriggerKey(DIK_A)) { wantedYaw = kPI;         hasYaw = true; }
-    if (input_->TriggerKey(DIK_UP)    || input_->TriggerKey(DIK_W)) { wantedYaw = -kPI * 0.5f; hasYaw = true; }
-    if (input_->TriggerKey(DIK_DOWN)  || input_->TriggerKey(DIK_S)) { wantedYaw = kPI * 0.5f;  hasYaw = true; }
+    if (input_->TriggerKey(DIK_RIGHT) || input_->TriggerKey(DIK_D)) { wantedYaw = kPI;        hasYaw = true; }
+    if (input_->TriggerKey(DIK_LEFT)  || input_->TriggerKey(DIK_A)) { wantedYaw = 0.0f;         hasYaw = true; }
+    if (input_->TriggerKey(DIK_UP)    || input_->TriggerKey(DIK_W)) { wantedYaw = kPI * 0.5f; hasYaw = true; }
+    if (input_->TriggerKey(DIK_DOWN)  || input_->TriggerKey(DIK_S)) { wantedYaw = -kPI * 0.5f;  hasYaw = true; }
     if (hasYaw) {
         RequestFaceYaw(wantedYaw);
     }
@@ -136,10 +136,10 @@ void Player::Update() {
     int nx = static_cast<int>(ix_);
     int ny = static_cast<int>(iy_);
 
-    if (input_->TriggerKey(DIK_RIGHT) || input_->TriggerKey(DIK_D)) { nx += 1; }
-    if (input_->TriggerKey(DIK_LEFT)  || input_->TriggerKey(DIK_A)) { nx -= 1; }
-    if (input_->TriggerKey(DIK_UP)    || input_->TriggerKey(DIK_W)) { ny += 1; }
-    if (input_->TriggerKey(DIK_DOWN)  || input_->TriggerKey(DIK_S)) { ny -= 1; }
+    if (input_->TriggerKey(DIK_RIGHT) || input_->TriggerKey(DIK_D)) { nx -= 1; }
+    if (input_->TriggerKey(DIK_LEFT)  || input_->TriggerKey(DIK_A)) { nx += 1; }
+    if (input_->TriggerKey(DIK_UP)    || input_->TriggerKey(DIK_W)) { ny -= 1; }
+    if (input_->TriggerKey(DIK_DOWN)  || input_->TriggerKey(DIK_S)) { ny += 1; }
 
     // 入力なし
     if (nx == static_cast<int>(ix_) && ny == static_cast<int>(iy_)) {
@@ -155,7 +155,7 @@ void Player::Update() {
     // 壁・Raised禁止
     {
         MapChipType t = map_->GetMapChipTypeByIndex((uint32_t)nx, (uint32_t)ny);
-        if (t == MapChipType::kBlank || t == MapChipType::kRaised|| t == MapChipType::kSpike) {
+        if (t == MapChipType::kBlank || t == MapChipType::kRaised|| t == MapChipType::kSpike|| t == MapChipType::kRaisedSpike) {
             wt_.UpdateMatrix();
             return;
         }

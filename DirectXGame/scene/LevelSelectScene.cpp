@@ -5,6 +5,7 @@ using namespace KamataEngine;
 
 void LevelSelectScene::Initialize() {
     levels_ = {
+        "Resources/map/map.csv",
         "Resources/map/map_a.csv",
         "Resources/map/map_b.csv",
         "Resources/map/map_c.csv",

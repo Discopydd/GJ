@@ -50,7 +50,7 @@ void GameScene::GenerateBlocks() {
 
         for (uint32_t x = 0; x < mapChipField_.numBlockHorizontal_; x++) {
             MapChipType type = mapChipField_.GetMapChipTypeByIndex(x, y);
-            if (type == MapChipType::kBlock || type == MapChipType::kPortal || type == MapChipType::kRaised || type == MapChipType::kSpike|| type == MapChipType::kGoal) {
+            if (type == MapChipType::kBlock || type == MapChipType::kPortal || type == MapChipType::kRaised || type == MapChipType::kSpike|| type == MapChipType::kGoal|| type == MapChipType::kRaisedSpike) {
                 auto* wt = new WorldTransform();
                 wt->Initialize();
                 Vector3 pos2D = mapChipField_.GetMapChipPositionByIndex(x, y);
@@ -83,6 +83,34 @@ void GameScene::GenerateBlocks() {
 
                     // 初始地图格子可通过
                     mapChipField_.SetMapChipTypeByIndex(x, y, MapChipType::kBlock);
+                }
+                else if (type == MapChipType::kRaisedSpike) {
+                    // Raised：初始在高处
+                    auto* raised = new WorldTransform();
+                    raised->Initialize();
+                    float highY = tileHalf + MapChipField::kBlockHeight; // 悬空
+                    float lowY = tileHalf;                               // 落地中心
+                    raised->translation_ = { pos2D.x, highY, pos2D.y };
+                    raisedBlocks_.push_back(RaisedBlock{ raised, x, y, highY, lowY });
+                    isLowered_ = false;
+
+                    // Spike：初始在更高的高空（可见，不阻挡）
+                    auto* spike = new WorldTransform();
+                    spike->Initialize();
+                    float spikeLowY = tileHalf + MapChipField::kBlockHeight;         // Spike 自己的“地面中心”
+                    float spikeHighY = spikeLowY + MapChipField::kBlockHeight * 5.0f; // 高空
+                    spike->translation_ = { pos2D.x, spikeHighY, pos2D.y };
+
+                    SpikeTile st{};
+                    st.wt = spike; st.x = x; st.y = y;
+                    st.active = false;         // 初始不在地面，不阻挡
+                    st.animating = false;
+                    st.dir = -1;               // 首次触发时会“下降”
+                    st.highY = spikeHighY;
+                    st.lowY = spikeLowY;      // 常规用不到，但保留
+                    st.lockToRaisedLow = true;
+                    st.pairedRaisedLowY = lowY; // ★ 绑定到该格 Raised 的“落地中心Y”
+                    spikeTiles_.push_back(st);
                 }
             }
         }
@@ -121,7 +149,7 @@ void GameScene::LoadLevel(const std::string& path)
 int GameScene::PickInitialSteps(const std::string& path)
 {
     if (path.find("Resources/map/map_a.csv") != std::string::npos) return 10;
-    if (path.find("Resources/map/map_b.csv") != std::string::npos) return 18;
+    if (path.find("Resources/map/map_b.csv") != std::string::npos) return 14;
     if (path.find("Resources/map/map_c.csv") != std::string::npos) return 26;
     if (path.find("Resources/map/map_d.csv") != std::string::npos) return 34;
     if (path.find("Resources/map/map_e.csv") != std::string::npos) return 42;
@@ -157,8 +185,8 @@ void GameScene::Initialize() {
     input_ = Input::GetInstance();
 
     camera_.Initialize();
-    camera_.translation_ = { -10.0f, 20.0f, -20.0f };
-    camera_.rotation_ = { 0.5f, 0.5f, 0.0f };
+    camera_.translation_ = { -4.0f, 20.0f, 25.0f };
+    camera_.rotation_ = { 2.4f, -0.5f, 0.0f };
     camera_.UpdateMatrix();
     skydome_ = new Skydome();
     skydome_->Initialize(&camera_, "Skydome");
@@ -337,7 +365,20 @@ void GameScene::Update() {
         if (!st.animating || !st.wt) continue;
         anySpikeAnimating = true;
 
-        const float targetY = (st.dir < 0) ? st.lowY : st.highY;  // 下落=lowY，上升=highY
+        float targetY;
+        if (st.dir < 0) {
+            if (st.lockToRaisedLow) {
+                // ★ 关键：下降到“Raised 的正上方一格”（中心相差一个方块高度）
+                targetY = st.pairedRaisedLowY + MapChipField::kBlockHeight;
+            }
+            else {
+                targetY = st.lowY;
+            }
+        }
+        else {
+            targetY = st.highY;
+        }
+
         const float step = moveSpeed_ * ((st.dir < 0) ? -1.0f : 1.0f);
         st.wt->translation_.y += step;
 

@@ -37,6 +37,9 @@ public:
         int dir = -1;          // -1: 下落, +1: 上升
         float highY = 0.0f;    // 高空位置
         float lowY = 0.0f;    // 落地位置
+
+        bool lockToRaisedLow = false;
+        float pairedRaisedLowY = 0.0f;
     };
 private:
     DirectXCommon* dxCommon_ = nullptr;
