@@ -1,5 +1,6 @@
 #pragma once
 #include "KamataEngine.h"
+#include "IScene.h"
 #include "../map/MapChipField.h"
 #include "../player/Player.h"
 #include "../skydome/Skydome.h"
@@ -9,16 +10,18 @@ using namespace KamataEngine;
 /// <summary>
 /// ゲームシーン管理クラス
 /// </summary>
-class GameScene {
+class GameScene : public IScene {
 public:
     GameScene(); // コンストラクタ
     ~GameScene(); // デストラクタ
 
 
-    void Initialize(); // 初期化
-    void Update(); // 毎フレーム更新
-    void Draw(); // 描画
-
+    void Initialize() override ; // 初期化
+    void Update() override ; // 毎フレーム更新
+    void Draw() override ; // 描画
+    void Finalize() override;
+    void SetStartMap(const std::string& path) { startMapPath_ = path; }
+    bool IsSceneEnd() const { return exitToSelect_; } 
     // ===== Raised（浮いているブロック） =====
     struct RaisedBlock {
         WorldTransform* wt = nullptr;
@@ -80,4 +83,10 @@ private:
     int initialSteps_ = 10;
     int remainingSteps_ = 10;    // 当前剩余步数
     bool lastPlayerMoving_ = false; // 上一帧玩家是否处于移动补间中
+
+    std::string startMapPath_; // 从选关页传入
+
+    bool exitToSelect_ = false; 
+
+    int PickInitialSteps(const std::string& path);
 };

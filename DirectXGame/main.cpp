@@ -2,7 +2,7 @@
 #include "KamataEngine.h"
 #include "scene/GameScene.h"
 #include "scene/TitleScene.h"
-
+#include "scene/LevelSelectScene.h"
 using namespace KamataEngine;
 
 // 辅助：应用全屏/窗口
@@ -49,7 +49,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
     GameScene* gameScene = nullptr;
     TitleScene* titleScene = nullptr;
-
+    LevelSelectScene* selectScene = nullptr;
     // DirectXCommonインスタンスの取得
     DirectXCommon* dxCommon = DirectXCommon::GetInstance();
     ImGuiManager* imguiManager = ImGuiManager::GetInstance();
@@ -69,7 +69,8 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
             // 切换前若当前是窗口模式，先更新一下最新的窗口矩形，保证恢复时准确
             if (!isFullscreen) {
                 // no-op
-            } else {
+            }
+            else {
                 // 进入全屏前记录窗口最新位置（可选：只在从窗口 -> 全屏时更新）
                 GetWindowRect(hwnd, (LPRECT)&windowedRect);
                 windowedStyle = GetWindowLong(hwnd, GWL_STYLE);
@@ -82,36 +83,53 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
         if (titleScene && !titleScene->IsSceneEnd()) {
             titleScene->Update();
-        } else {
-            if (titleScene) {
-                delete titleScene;
-                titleScene = nullptr;
-
-                gameScene = new GameScene();
-                gameScene->Initialize();
-            }
-
-            if (gameScene) {
-                gameScene->Update();
-            }
         }
+        else if (titleScene) {
+            delete titleScene; titleScene = nullptr;
+            selectScene = new LevelSelectScene();
+            selectScene->Initialize();
+        }
+        else if (selectScene && !selectScene->IsSceneEnd()) {
+            selectScene->Update();
+        }
+        else if (selectScene) {
+            std::string chosen = selectScene->GetSelectedMap();
+            delete selectScene; selectScene = nullptr;
+
+            gameScene = new GameScene();
+            gameScene->SetStartMap(chosen);
+            gameScene->Initialize();
+        }
+        else if (gameScene && !gameScene->IsSceneEnd()) {
+            gameScene->Update();
+        }
+        else if (gameScene) {
+            // ★ 新增：关卡通关 → 回到选关页
+            delete gameScene; gameScene = nullptr;
+
+            selectScene = new LevelSelectScene();
+            selectScene->Initialize();
+        }
+
         imguiManager->End();
 
-        // 描画開始
+        // Draw 同理：
         dxCommon->PreDraw();
         if (titleScene && !titleScene->IsSceneEnd()) {
             titleScene->Draw();
-        } else if (gameScene) {
+        }
+        else if (selectScene && !selectScene->IsSceneEnd()) {
+            selectScene->Draw();
+        }
+        else if (gameScene) {
             gameScene->Draw();
         }
         imguiManager->Draw();
-
-        // 描画終了
         dxCommon->PostDraw();
     }
-
     delete gameScene;  gameScene = nullptr;
     delete titleScene; titleScene = nullptr;
+    delete selectScene; selectScene = nullptr;
     KamataEngine::Finalize();
     return 0;
 }

@@ -51,6 +51,12 @@
     <ClCompile Include="skydome\Skydome.cpp">
       <Filter>skydome</Filter>
     </ClCompile>
+    <ClCompile Include="scene\LevelSelectScene.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="scene\SceneManager.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Resources\shaders\SpritePS.hlsl">
@@ -116,6 +122,15 @@
     </ClInclude>
     <ClInclude Include="skydome\Skydome.h">
       <Filter>skydome</Filter>
+    </ClInclude>
+    <ClInclude Include="scene\IScene.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="scene\LevelSelectScene.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="scene\SceneManager.h">
+      <Filter>scene</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

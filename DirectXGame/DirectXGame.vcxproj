@@ -158,6 +158,8 @@
     <ClCompile Include="map\MapChipField.cpp" />
     <ClCompile Include="player\Player.cpp" />
     <ClCompile Include="scene\GameScene.cpp" />
+    <ClCompile Include="scene\LevelSelectScene.cpp" />
+    <ClCompile Include="scene\SceneManager.cpp" />
     <ClCompile Include="scene\TitleScene.cpp" />
     <ClCompile Include="skydome\Skydome.cpp" />
     <ClCompile Include="WorldTransformEx.cpp" />
@@ -263,6 +265,9 @@
     <ClInclude Include="map\MapChipField.h" />
     <ClInclude Include="player\Player.h" />
     <ClInclude Include="scene\GameScene.h" />
+    <ClInclude Include="scene\IScene.h" />
+    <ClInclude Include="scene\LevelSelectScene.h" />
+    <ClInclude Include="scene\SceneManager.h" />
     <ClInclude Include="scene\TitleScene.h" />
     <ClInclude Include="skydome\Skydome.h" />
   </ItemGroup>

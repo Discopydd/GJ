@@ -97,7 +97,7 @@ void GameScene::LoadLevel(const std::string& path)
 {
     // 重新加载地图并重建方块
     currentMapPath_ = path;
-
+    initialSteps_ = PickInitialSteps(currentMapPath_);
     mapChipField_.LoadMapChipCsv(currentMapPath_);
     GenerateBlocks();
 
@@ -115,11 +115,32 @@ void GameScene::LoadLevel(const std::string& path)
     // 重置步数
     remainingSteps_ = initialSteps_;
     lastPlayerMoving_ = false;
+    exitToSelect_ = false;
+}
+
+int GameScene::PickInitialSteps(const std::string& path)
+{
+    if (path.find("Resources/map/map_a.csv") != std::string::npos) return 10;
+    if (path.find("Resources/map/map_b.csv") != std::string::npos) return 18;
+    if (path.find("Resources/map/map_c.csv") != std::string::npos) return 26;
+    if (path.find("Resources/map/map_d.csv") != std::string::npos) return 34;
+    if (path.find("Resources/map/map_e.csv") != std::string::npos) return 42;
+    if (path.find("Resources/map/map_f.csv") != std::string::npos) return 50;
+    if (path.find("Resources/map/map_g.csv") != std::string::npos) return 58;
+
+    // 兼容你默认的单图用法
+    if (path.find("Resources/map.csv") != std::string::npos)   return 10;
+
+    // 未匹配：给个保底值
+    return 20;
 }
 
 GameScene::GameScene() {}
 
 GameScene::~GameScene() {
+   Finalize();
+}
+void GameScene::Finalize() {
     delete player_;          player_ = nullptr;
     delete skydome_;         skydome_ = nullptr;
     delete model_;           model_ = nullptr;        // cube
@@ -130,7 +151,6 @@ GameScene::~GameScene() {
     DisposeMapBlocks(mapBlocks_);
     DisposeSpikes(spikeTiles_);
 }
-
 // 初期化
 void GameScene::Initialize() {
     dxCommon_ = DirectXCommon::GetInstance();
@@ -143,7 +163,13 @@ void GameScene::Initialize() {
     skydome_ = new Skydome();
     skydome_->Initialize(&camera_, "Skydome");
     // マップ読み込み
-    currentMapPath_ = "Resources/map.csv";
+    if (!startMapPath_.empty()) {
+        currentMapPath_ = startMapPath_;
+    }
+    else {
+        currentMapPath_ = "Resources/map.csv";  // 作为默认值
+    }
+    initialSteps_ = PickInitialSteps(currentMapPath_);
     mapChipField_.LoadMapChipCsv(currentMapPath_);
     GenerateBlocks();
 
@@ -163,6 +189,8 @@ void GameScene::Initialize() {
     wasOnPortal_ = false;
     remainingSteps_ = initialSteps_;
     lastPlayerMoving_ = false;
+
+    exitToSelect_ = false;
 }
 
 // 毎フレーム更新
@@ -201,6 +229,11 @@ void GameScene::Update() {
 
         // 保存当前状态供下一帧比较
         lastPlayerMoving_ = nowMoving;
+    }
+    // ===== 快捷键：返回关卡选择 =====
+    if (input_->TriggerKey(DIK_TAB)) {
+        exitToSelect_ = true;
+        return; // 立即结束本帧，主循环会检测到并切回 LevelSelectScene
     }
 
     // === （可选）步数显示：ImGui ===
@@ -264,14 +297,10 @@ void GameScene::Update() {
     // ===== Goal 触发：完全进入 Goal 即通关/切关 =====
     if (fullyInsideGoal && !goalReached_) {
         goalReached_ = true;
-        playerLocked_ = true;                    // 切关时禁用输入防抖
-        if (!nextMapPath_.empty()) {
-            LoadLevel(nextMapPath_);             // 切到下一关
-        }
-        else {
-            LoadLevel(currentMapPath_);          // 没配置下一关就重载当前关
-        }
-        return;                                  // 本帧到此结束
+        playerLocked_ = true;
+        // ★ 改动：不再 LoadLevel，改为通知主循环回到选关页
+        exitToSelect_ = true;
+        return; // 本帧结束，让主循环感知到 IsSceneEnd() == true
     }
     // ===== 推进 Raised 动画 =====
     if (animating_) {
