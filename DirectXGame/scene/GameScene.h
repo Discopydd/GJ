@@ -4,6 +4,8 @@
 #include "../map/MapChipField.h"
 #include "../player/Player.h"
 #include "../skydome/Skydome.h"
+#include "LevelSelectScene.h"
+
 using namespace KamataEngine;
 
 
@@ -41,10 +43,16 @@ public:
         bool lockToRaisedLow = false;
         float pairedRaisedLowY = 0.0f;
     };
+    struct LocationMarker {
+        WorldTransform* wt = nullptr;
+        float baseY = 0.0f;   // 基准高度（位于1.5格处）
+    };
+    void SetSceneManager(SceneManager* sm) { sceneManager_ = sm; }
 private:
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
     Camera camera_{};
+    SceneManager* sceneManager_ = nullptr;
     Model* model_ = nullptr;
     Model* obstacleModel_ = nullptr;
     Model* darkModel_ = nullptr;
@@ -52,6 +60,7 @@ private:
     Model* switchModel_ = nullptr;
     Model* goalModel_ = nullptr;
     Model* darkSwitchModel_ = nullptr;
+    Model* locationModel_ = nullptr;
     MapChipField mapChipField_; // マップチップデータ
 
     Skydome* skydome_ = nullptr;
@@ -107,4 +116,27 @@ private:
 
     enum class FadeAction { ToggleWorld, ReloadToBright, ExitToSelect };
     FadeAction fadeAction_ = FadeAction::ToggleWorld;
+
+    // === 步数数字贴图 ===
+    uint32_t stepDigitTex_[10]{};        // 0..9 纹理句柄
+    std::vector<Sprite*> stepDigitSprites_; // 当前显示的“每一位”Sprite
+    int lastStepsShown_ = -1;            // 上一帧显示的数值（变化才重建）
+
+    // UI 参数（可调整）
+    float stepDigitSize_ = 48.0f;     // 单个数字像素大小
+    float stepDigitSpacing_ = -15.0f;      // 数字间距
+    float stepDigitMargin_ = 10.0f;     // 距离右上角的边距
+
+    // 生成/重建数字Sprites
+    void RebuildStepDigits_(int value);
+
+    // === Goal 上方的定位标记（会漂浮旋转） ===
+    std::vector<LocationMarker> locationMarkers_;
+
+    // 漂浮 / 旋转参数
+    float locationBobPhase_ = 0.0f;   // 正弦相位
+    float locationBobSpeed_ = 0.05f;  // 漂浮速度（调大更快）
+    float locationBobAmpBlk_ = 0.5f;   // 漂浮幅度（以“格”为单位：0.5=半格，上下共1格）
+    float locationRotSpeed_ = 0.03f;  // 每帧绕Y旋转（弧度）
+
 };

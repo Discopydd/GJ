@@ -36,13 +36,17 @@ static void DisposeSpikes(std::vector<GameScene::SpikeTile>& spikes) {
 for (auto& st : spikes) { delete st.wt; st.wt = nullptr; }
 spikes.clear();
 }
-
+static void DisposeLocationMarkers(std::vector<GameScene::LocationMarker>& marks) {
+    for (auto& m : marks) { delete m.wt; m.wt = nullptr; }
+    marks.clear();
+}
 // マップからブロックを生成
 void GameScene::GenerateBlocks() {
     // 以前の生成物を破棄（リーク防止）
     DisposeMapBlocks(mapBlocks_);
     DisposeRaised(raisedBlocks_);
     DisposeSpikes(spikeTiles_);
+    DisposeLocationMarkers(locationMarkers_);
     mapBlocks_.resize(mapChipField_.numBlockVertical_);
 
     for (uint32_t y = 0; y < mapChipField_.numBlockVertical_; y++) {
@@ -112,6 +116,19 @@ void GameScene::GenerateBlocks() {
                     st.pairedRaisedLowY = lowY; // ★ 绑定到该格 Raised 的“落地中心Y”
                     spikeTiles_.push_back(st);
                 }
+                else if (type == MapChipType::kGoal) {
+                    // 普通的地块 WT 你已创建；再创建定位标记 WT
+                    auto* loc = new WorldTransform();
+                    loc->Initialize();
+
+                    float locationTileHalf = MapChipField::kBlockHeight * 0.5f;
+
+                    // 基准高度：比地面中心高 1.5 格（介于1~2格之间）
+                    float baseY = locationTileHalf + MapChipField::kBlockHeight * 1.5f;
+                    loc->translation_ = { pos2D.x, baseY, pos2D.y };
+                    loc->rotation_ = { 0.0f, 0.0f, 0.0f };
+                    locationMarkers_.push_back(LocationMarker{ loc, baseY });
+                }
             }
         }
     }
@@ -122,7 +139,7 @@ void GameScene::GenerateBlocks() {
     if (!darkModel_)        darkModel_ = Model::CreateFromOBJ("darkCube", true);
     if (!darkObstacleModel_)darkObstacleModel_ = Model::CreateFromOBJ("darkObstacle", true);
     if (!darkSwitchModel_)  darkSwitchModel_ = Model::CreateFromOBJ("darkSwitch", true);
-
+    if (!locationModel_) locationModel_ = Model::CreateFromOBJ("location", true);
 }
 
 void GameScene::LoadLevel(const std::string& path)
@@ -167,6 +184,34 @@ int GameScene::PickInitialSteps(const std::string& path)
     return 20;
 }
 
+void GameScene::RebuildStepDigits_(int value)
+{
+      // 清理旧的
+    for (auto* s : stepDigitSprites_) { delete s; }
+    stepDigitSprites_.clear();
+
+    if (value < 0) value = 0;
+
+    // 把数值转为字符串（至少显示一位）
+    std::string s = std::to_string(value);
+
+    // 右上角排版（不改变锚点，直接算坐标）
+    float xRight = (float)KamataEngine::WinApp::kWindowWidth  - stepDigitMargin_;
+    float yTop   = stepDigitMargin_;  // 顶部边距
+    // 逐位从右往左放
+    for (int i = (int)s.size() - 1; i >= 0; --i) {
+        int d = s[i] - '0';
+        float x = xRight - (float)(s.size() - 1 - i) * (stepDigitSize_ + stepDigitSpacing_);
+        auto* sp = KamataEngine::Sprite::Create(stepDigitTex_[d], { x - stepDigitSize_, yTop }); // 以左上角为参考
+        sp->SetAnchorPoint({0.0f, 0.0f});
+        sp->SetSize({ stepDigitSize_, stepDigitSize_ });
+        sp->SetColor({1,1,1,1});
+        stepDigitSprites_.push_back(sp);
+    }
+
+    lastStepsShown_ = value;
+}
+
 GameScene::GameScene() {}
 
 GameScene::~GameScene() {
@@ -183,10 +228,14 @@ void GameScene::Finalize() {
     delete darkObstacleModel_;  darkObstacleModel_ = nullptr;
     delete darkSwitchModel_;  darkSwitchModel_ = nullptr;
     delete fadeSprite_; fadeSprite_ = nullptr;
+    delete locationModel_; locationModel_ = nullptr;
+    for (auto* s : stepDigitSprites_) { delete s; }
+    stepDigitSprites_.clear();
     // 生成物破棄
     DisposeRaised(raisedBlocks_);
     DisposeMapBlocks(mapBlocks_);
     DisposeSpikes(spikeTiles_);
+    DisposeLocationMarkers(locationMarkers_);
 }
 // 初期化
 void GameScene::Initialize() {
@@ -223,7 +272,7 @@ void GameScene::Initialize() {
 // 1) 加载纹理（按你的 TextureManager 接口来写）
     fadeTexIndex_ = TextureManager::GetInstance()->Load("white1x1.png");
     // 2) 创建 Sprite
-    fadeSprite_ = Sprite::Create(fadeTexIndex_,{0.0f, 0.0f});
+    fadeSprite_ = Sprite::Create(fadeTexIndex_, { 0.0f, 0.0f });
     fadeSprite_->SetAnchorPoint({ 0.0f, 0.0f });
     fadeSprite_->SetPosition({ 0.0f, 0.0f });
 
@@ -232,6 +281,13 @@ void GameScene::Initialize() {
                            (float)KamataEngine::WinApp::kWindowHeight });
 
     fadeSprite_->SetColor({ 0.0f, 0.0f, 0.0f, 0.0f }); // 初始透明
+    // 载入 0..9 贴图
+    for (int d = 0; d < 10; ++d) {
+        stepDigitTex_[d] = KamataEngine::TextureManager::Load("numbers/" + std::to_string(d) + ".png");
+    }
+
+    // 生成当前步数的数字Sprites
+    RebuildStepDigits_(remainingSteps_);
 
     // 状態初期化
     animating_ = false;
@@ -283,20 +339,17 @@ void GameScene::Update() {
     }
     // ===== 快捷键：返回关卡选择 =====
     if (input_->TriggerKey(DIK_TAB)) {
-        if (!worldToggleInProgress_) {
-            worldToggleInProgress_ = true;  // 开始淡入
-            fadeOutPhase_ = true;
-            fadeAction_ = FadeAction::ExitToSelect;  // ★ 到全黑后再退出
-            playerLocked_ = true;                    // 过渡期间锁操作
-        }
-        return; // 立即结束本帧，主循环会检测到并切回 LevelSelectScene
+        auto* next = new LevelSelectScene();
+        next->SetSceneManager(sceneManager_); 
+        sceneManager_->SetNextScene(next);
+        return;
     }
 
     // === （可选）步数显示：ImGui ===
     ImGui::Begin("Game Info");
     ImGui::Text("Steps: %d / %d", remainingSteps_, initialSteps_);
     ImGui::End();
-// ===== 按 R 重新开始（使用过渡）=====
+    // ===== 按 R 重新开始（使用过渡）=====
     if (input_->TriggerKey(DIK_R)) {
         // 启动黑幕过渡
         if (!worldToggleInProgress_) {
@@ -398,6 +451,16 @@ void GameScene::Update() {
             }
         }
     }
+    // === 位置标记动画（上下浮动 + 旋转）===
+    locationBobPhase_ += locationBobSpeed_;
+    const float amp = locationBobAmpBlk_ * MapChipField::kBlockHeight; // 将“格”换算成世界单位
+    for (auto& m : locationMarkers_) {
+        if (!m.wt) continue;
+        // 上下浮动：围绕 baseY 在 [baseY - amp, baseY + amp] 之间
+        m.wt->translation_.y = m.baseY + std::sinf(locationBobPhase_) * amp;
+        // 绕 Y 轴匀速旋转
+        m.wt->rotation_.y += locationRotSpeed_;
+    }
 
     // ===== 推进 Spike 动画 =====
     bool anySpikeAnimating = false;
@@ -481,6 +544,9 @@ void GameScene::Update() {
     if (playerLocked_ && !anyAnimatingNow && !worldToggleInProgress_) {
         playerLocked_ = false;
     }
+    if (lastStepsShown_ != remainingSteps_) {
+        RebuildStepDigits_(remainingSteps_);
+    }
 }
 
 
@@ -536,13 +602,23 @@ void GameScene::Draw() {
             obstModel->Draw(*st.wt, camera_);
         }
     }
+    // === Goal 上方定位标记 ===
+    if (locationModel_) {
+        for (auto& m : locationMarkers_) {
+            if (!m.wt) continue;
+            m.wt->UpdateMatrix();
+            locationModel_->Draw(*m.wt, camera_);
+        }
+    }
     if (player_) player_->Draw();
     Model::PostDraw();
 
     // 前景スプライト描画
     Sprite::PreDraw(commandList);
     // ここで Portal 上のUIなどを描く場合は WorldToScreen を活用
-
+    for (auto* s : stepDigitSprites_) {
+        s->Draw();
+    }
     if (fadeSprite_ && fadeAlpha_ > 0.0f) {
         fadeSprite_->SetColor({ 0,0,0,fadeAlpha_ });
         fadeSprite_->Draw();

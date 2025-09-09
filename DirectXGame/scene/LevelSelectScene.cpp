@@ -4,6 +4,8 @@
 using namespace KamataEngine;
 
 void LevelSelectScene::Initialize() {
+    input_ = Input::GetInstance();
+    dxCommon_ = DirectXCommon::GetInstance();
     levels_ = {
         "Resources/map/map.csv",
         "Resources/map/map_a.csv",
@@ -17,45 +19,84 @@ void LevelSelectScene::Initialize() {
     selected_ = 0;
     decided_ = false;
     selectedMap_.clear();
+
+    backTextureHandle_ = TextureManager::Load("back.png");
+    backSprite_ = Sprite::Create(backTextureHandle_, { 0, 0 });
+
+    BuildButtons_();
+
+}
+void LevelSelectScene::Finalize() {
+    DestroyButtons_();
+    if (backSprite_) { delete backSprite_; backSprite_ = nullptr; }
 }
 
+
 void LevelSelectScene::Update() {
-    if (decided_ || levels_.empty()) return;
+    if (levels_.empty()) return;
 
-    auto* input = Input::GetInstance();
-    const size_t n = levels_.size();
+    // --- 鼠标命中 + 点击 ---
+    Vector2 mp = input_->GetMousePosition();     // 窗口像素坐标
+    bool clicked = input_->IsTriggerMouse(0);    // 左键点击瞬间
 
-    // ↑/↓ 键选择（避免无符号减法借位）
-    if (input->TriggerKey(DIK_UP)) {
-        if (selected_ == 0) selected_ = n - 1;
-        else selected_ -= 1;
-    }
-    if (input->TriggerKey(DIK_DOWN)) {
-        selected_ = (selected_ + 1) % n;
-    }
+    for (size_t i = 0; i < buttons_.size(); ++i) {
+        auto& b = buttons_[i];
 
-    // Enter/Space 确认
-    if (input->TriggerKey(DIK_RETURN) || input->TriggerKey(DIK_SPACE)) {
-        decided_ = true;
-        selectedMap_ = levels_[selected_];
-        return;
-    }
+        bool hover =
+            (mp.x >= b.pos.x) && (mp.x <= b.pos.x + b.size.x) &&
+            (mp.y >= b.pos.y) && (mp.y <= b.pos.y + b.size.y);
 
-    // 也支持 ImGui 点击
-    ImGui::Begin("Level Select");
-    ImGui::Text("Use Up/Down and Enter, or click an item.");
-    for (size_t i = 0; i < n; ++i) {
-        bool sel = (i == selected_);
-        if (ImGui::Selectable(levels_[i].c_str(), sel)) {
-            decided_ = true;
-            selectedMap_ = levels_[i];
-            ImGui::End();
+        if (hover && clicked && sceneManager_) {
+            auto* next = new GameScene();
+            next->SetStartMap(b.mapPath);
+            next->SetSceneManager(sceneManager_);
+            sceneManager_->SetNextScene(next);   // ★ 全局淡出→切→淡入
             return;
         }
     }
-    ImGui::End();
 }
 
+
 void LevelSelectScene::Draw() {
-    // 使用 ImGui 渲染，无需额外 2D/3D 绘制
+    ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
+    Sprite::PreDraw(commandList);
+    backSprite_->Draw();
+    for (auto& b : buttons_) {
+        b.sprite->Draw();
+    }
+    Sprite::PostDraw();
+    dxCommon_->ClearDepthBuffer();
+}
+void LevelSelectScene::DestroyButtons_() {
+    for (auto& b : buttons_) { delete b.sprite; }
+    buttons_.clear();
+}
+void LevelSelectScene::BuildButtons_() {
+    DestroyButtons_();
+
+    // 网格布局：从左上角开始
+    float startX = margin_;
+    float startY = margin_;
+
+    for (size_t i = 0; i < levels_.size(); ++i) {
+        // 数字图片：放在 Resources/levels/1.png, 2.png, ..., 9.png（可自行扩展）
+        uint32_t handle = TextureManager::Load("levelnum/" + std::to_string(i + 1) + ".png");
+
+        int row = static_cast<int>(i) / cols_;
+        int col = static_cast<int>(i) % cols_;
+        Vector2 pos = { startX + col * (btnSize_.x + gap_),
+                        startY + row * (btnSize_.y + gap_) };
+
+        auto* sp = Sprite::Create(handle, pos);
+        sp->SetAnchorPoint({ 0.0f, 0.0f });
+        sp->SetSize(btnSize_);
+
+        LevelButton b;
+        b.sprite = sp;
+        b.mapPath = levels_[i];
+        b.pos = pos;
+        b.size = btnSize_;
+        b.tex = handle;
+        buttons_.push_back(b);
+    }
 }
