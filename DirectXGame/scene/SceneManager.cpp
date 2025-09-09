@@ -1,18 +1,15 @@
 #include "SceneManager.h"
-#include "LevelSelectScene.h"
-#include "GameScene.h"
+
 using namespace KamataEngine;
 
 SceneManager::SceneManager() {
     EnsureOverlay_();
-    //EnsureLoading_();
 }
 
 SceneManager::~SceneManager() {
-    if (scene_) { scene_->Finalize(); delete scene_; scene_ = nullptr; }
+    if (scene_) { scene_->Finalize(); delete scene_; }
     if (pendingScene_) { delete pendingScene_; pendingScene_ = nullptr; }
-    delete overlay_; overlay_ = nullptr;
-    delete loadingSprite_; loadingSprite_ = nullptr;
+    if (overlay_) { delete overlay_; overlay_ = nullptr; }
 }
 
 void SceneManager::EnsureOverlay_() {
@@ -53,11 +50,8 @@ void SceneManager::SetNextScene(IScene* scene, bool useTransition) {
 
 void SceneManager::StartFadeOut_() {
     EnsureOverlay_();
-    if (showLoadingThisSwitch_) {
-        EnsureLoading_();          // 只在需要时才加载/创建 Loading 精灵
-        switchStarted_ = false;    // Switch 第一帧先显示 Loading
-    }
     trans_ = Trans::FadeOut;
+    // 若你想更慢：overlaySpeed_ = 0.03f;
 }
 
 void SceneManager::DoSwitch_() {
@@ -69,58 +63,43 @@ void SceneManager::DoSwitch_() {
     trans_ = Trans::FadeIn;                  // 切完准备淡入
 }
 
-void SceneManager::EnsureLoading_()
-{
-    // 准备一张 Resources/ui/loading.png
-    uint32_t tex = KamataEngine::TextureManager::Load("loading.png");
-    loadingSprite_ = KamataEngine::Sprite::Create(tex, { 0,0 });
-}
-
 void SceneManager::Update() {
+    // === 过渡推进 ===
     switch (trans_) {
     case Trans::FadeOut:
         overlayAlpha_ += overlaySpeed_;
         if (overlayAlpha_ >= 1.0f) {
             overlayAlpha_ = 1.0f;
-            trans_ = Trans::Switch;
-            switchStarted_ = false; // 下一帧先画 Loading（静态）
+            trans_ = Trans::Switch;          // 下一步做真正切换
         }
+        if (overlay_) overlay_->SetColor({0,0,0,overlayAlpha_});
         break;
 
     case Trans::Switch:
-        if (!switchStarted_) {
-            // 第一次进入 Switch：仅渲染“黑幕 + Loading”这一帧
-            switchStarted_ = true;
-            // 保持 loading 居中（若窗口大小可能变化，逐帧更新位置）
-            if (loadingSprite_) {
-                loadingSprite_->SetPosition({
-                  (float)KamataEngine::WinApp::kWindowWidth * 0.5f,
-                  (float)KamataEngine::WinApp::kWindowHeight * 0.7f   // 靠下些更像加载提示
-                    });
-            }
-            // 本帧不做 Initialize，让这帧画面能先显示出去
-        }
-        else {
-            DoSwitch_();  // 下一帧再真正 Initialize 新场景
-        }
+        DoSwitch_();                         // 同一帧或下一帧都行
+        if (overlay_) overlay_->SetColor({0,0,0,overlayAlpha_}); // 仍保持全黑
         break;
 
     case Trans::FadeIn:
         overlayAlpha_ -= overlaySpeed_;
-        if (overlayAlpha_ <= 0.0f) { overlayAlpha_ = 0.0f; trans_ = Trans::Idle; }
+        if (overlayAlpha_ <= 0.0f) {
+            overlayAlpha_ = 0.0f;
+            trans_ = Trans::Idle;
+        }
+        if (overlay_) overlay_->SetColor({0,0,0,overlayAlpha_});
         break;
 
     case Trans::Idle:
+        // 无过渡，正常进行
         break;
     }
 
-    if (overlay_) overlay_->SetColor({ 0,0,0,overlayAlpha_ });
-
-    // 非 Switch 阶段才更新当前场景
+    // === 场景更新（不在 Switch 阶段时才更新）===
     if (scene_ && trans_ != Trans::Switch) {
         scene_->Update();
     }
 }
+
 void SceneManager::Draw() {
     // 先画场景（Switch 阶段 scene_ 可能为 nullptr）
     if (scene_) { scene_->Draw(); }
@@ -132,9 +111,6 @@ void SceneManager::Draw() {
         // （可选）防窗口尺寸改变：每帧更新大小
         overlay_->SetSize({ (float)WinApp::kWindowWidth, (float)WinApp::kWindowHeight });
         overlay_->Draw();
-    }
-    if (trans_ == Trans::Switch && showLoadingThisSwitch_ && loadingSprite_) {
-        loadingSprite_->Draw();
     }
     Sprite::PostDraw();
 }

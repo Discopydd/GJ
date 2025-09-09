@@ -50,7 +50,6 @@ void LevelSelectScene::Update() {
             auto* next = new GameScene();
             next->SetStartMap(b.mapPath);
             next->SetSceneManager(sceneManager_);
-            sceneManager_->ShowLoadingOnNextSwitch(true); 
             sceneManager_->SetNextScene(next);   // ★ 全局淡出→切→淡入
             return;
         }
