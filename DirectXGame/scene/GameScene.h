@@ -142,4 +142,11 @@ private:
 
     uint32_t asdTextureHandle_ = 0;
     Sprite* asdSprite_ = nullptr;
+
+    // === 通关叠加图（clear.png） ===
+    uint32_t clearTexHandle_ = 0;     // clear.png 纹理
+    Sprite* clearSprite_ = nullptr;
+    bool     showClear_ = false; // 正在显示 clear.png
+    int      clearFrame_ = 0;     // 已显示的帧数
+    static inline const int kClearShowFrames = 90; // 1.5s @60fps
 };

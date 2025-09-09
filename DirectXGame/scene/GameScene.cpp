@@ -229,6 +229,7 @@ void GameScene::Finalize() {
     delete darkSwitchModel_;  darkSwitchModel_ = nullptr;
     delete fadeSprite_; fadeSprite_ = nullptr;
     delete locationModel_; locationModel_ = nullptr;
+    delete clearSprite_; clearSprite_ = nullptr;
     for (auto* s : stepDigitSprites_) { delete s; }
     stepDigitSprites_.clear();
     // 生成物破棄
@@ -292,6 +293,13 @@ void GameScene::Initialize() {
 
     asdTextureHandle_ = TextureManager::Load("asd.png");
     asdSprite_ = Sprite::Create(asdTextureHandle_, { 0, 0 });
+
+    // === clear.png 叠加图 ===
+    clearTexHandle_ = TextureManager::Load("clear.png"); // 路径按你的资源目录
+    clearSprite_ = Sprite::Create(clearTexHandle_, { 0, -100 });
+    showClear_ = false;
+    clearFrame_ = 0;
+
     // 状態初期化
     animating_ = false;
     animDir_ = -1;
@@ -422,15 +430,11 @@ void GameScene::Update() {
     if (fullyInsideGoal && !goalReached_) {
         goalReached_ = true;
         playerLocked_ = true;
-        if (sceneManager_) {
-            auto* next = new LevelSelectScene();
-            next->SetSceneManager(sceneManager_);   // 把 SM 指针传给下一个场景
-            sceneManager_->SetNextScene(next);      // ★ 交给 SceneManager 做全局淡出→切换→淡入
-        }
-        else {
-            // 兼容旧式 main（如果没用 SceneManager 的话）
-            exitToSelect_ = true;
-        }
+        // 1) 先显示通关叠加图 1.5 秒（不清屏）
+        showClear_ = true;
+        clearFrame_ = 0;
+
+        // 2) 先不切场景；计时结束后再交给 SceneManager 做带 Fade 的切换
         return;
     }
     // ===== 推进 Raised 动画 =====
@@ -554,6 +558,28 @@ void GameScene::Update() {
     if (playerLocked_ && !anyAnimatingNow && !worldToggleInProgress_) {
         playerLocked_ = false;
     }
+    // ===== 通关叠加：计时 1.5 秒后切回选关（SceneManager 自带 Fade）=====
+    if (showClear_) {
+        clearFrame_++;
+        if (clearFrame_ >= kClearShowFrames) {
+            showClear_ = false;  // 关闭叠加
+            clearFrame_ = 0;
+
+            if (sceneManager_) {
+                auto* next = new LevelSelectScene();
+                next->SetSceneManager(sceneManager_);
+
+                // 使用 SceneManager 的过渡（淡出→切场→淡入）
+                sceneManager_->SetNextScene(next);
+            }
+            else {
+                // 兼容无 SceneManager 的旧逻辑
+                exitToSelect_ = true;
+            }
+            return; // 本帧结束（避免继续处理别的逻辑）
+        }
+    }
+
     if (lastStepsShown_ != remainingSteps_) {
         RebuildStepDigits_(remainingSteps_);
     }
@@ -630,6 +656,9 @@ void GameScene::Draw() {
         s->Draw();
     }
     asdSprite_->Draw();
+    if (showClear_ && clearSprite_) {
+        clearSprite_->Draw();
+    }
     if (fadeSprite_ && fadeAlpha_ > 0.0f) {
         fadeSprite_->SetColor({ 0,0,0,fadeAlpha_ });
         fadeSprite_->Draw();
