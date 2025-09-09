@@ -5,7 +5,7 @@ using namespace KamataEngine;
 
 SceneManager::SceneManager() {
     EnsureOverlay_();
-    EnsureLoading_();
+    //EnsureLoading_();
 }
 
 SceneManager::~SceneManager() {
@@ -71,7 +71,6 @@ void SceneManager::DoSwitch_() {
 
 void SceneManager::EnsureLoading_()
 {
-    if (loadingSprite_) return;
     // 准备一张 Resources/ui/loading.png
     uint32_t tex = KamataEngine::TextureManager::Load("loading.png");
     loadingSprite_ = KamataEngine::Sprite::Create(tex, { 0,0 });
@@ -134,8 +133,8 @@ void SceneManager::Draw() {
         overlay_->SetSize({ (float)WinApp::kWindowWidth, (float)WinApp::kWindowHeight });
         overlay_->Draw();
     }
-if (trans_ == Trans::Switch && showLoadingThisSwitch_ && loadingSprite_) {
-    loadingSprite_->Draw();
-}
+    if (trans_ == Trans::Switch && showLoadingThisSwitch_ && loadingSprite_) {
+        loadingSprite_->Draw();
+    }
     Sprite::PostDraw();
 }

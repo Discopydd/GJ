@@ -13,6 +13,7 @@ public:
     void Update();
     void Draw();
     void SetInitialScene(IScene* scene) { SetNextScene(scene, /*useTransition=*/false); }
+    void ShowLoadingOnNextSwitch(bool enable = true) { showLoadingThisSwitch_ = enable; }
 private:
     IScene* scene_ = nullptr;
 
