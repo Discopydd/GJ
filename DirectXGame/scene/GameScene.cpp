@@ -115,16 +115,14 @@ void GameScene::GenerateBlocks() {
             }
         }
     }
+    if (!model_)            model_ = Model::CreateFromOBJ("cube", true);
+    if (!obstacleModel_)    obstacleModel_ = Model::CreateFromOBJ("obstacle", true);
+    if (!switchModel_)      switchModel_ = Model::CreateFromOBJ("switch", true);
+    if (!goalModel_)        goalModel_ = Model::CreateFromOBJ("goal", true);
+    if (!darkModel_)        darkModel_ = Model::CreateFromOBJ("darkCube", true);
+    if (!darkObstacleModel_)darkObstacleModel_ = Model::CreateFromOBJ("darkObstacle", true);
+    if (!darkSwitchModel_)  darkSwitchModel_ = Model::CreateFromOBJ("darkSwitch", true);
 
-    // モデル生成
-    model_ = Model::CreateFromOBJ("cube", true);
-    obstacleModel_ = Model::CreateFromOBJ("obstacle", true);
-    switchModel_ = Model::CreateFromOBJ("switch", true);
-    goalModel_ = Model::CreateFromOBJ("goal", true);
-    // ★ 新增：暗色版
-    darkModel_ = Model::CreateFromOBJ("darkCube", true);
-    darkObstacleModel_ = Model::CreateFromOBJ("darkObstacle", true);
-    darkSwitchModel_  = Model::CreateFromOBJ("darkSwitch", true);
 }
 
 void GameScene::LoadLevel(const std::string& path)
@@ -184,6 +182,7 @@ void GameScene::Finalize() {
     delete darkModel_;          darkModel_ = nullptr;
     delete darkObstacleModel_;  darkObstacleModel_ = nullptr;
     delete darkSwitchModel_;  darkSwitchModel_ = nullptr;
+    delete fadeSprite_; fadeSprite_ = nullptr;
     // 生成物破棄
     DisposeRaised(raisedBlocks_);
     DisposeMapBlocks(mapBlocks_);
@@ -219,6 +218,20 @@ void GameScene::Initialize() {
     float blockTopY = MapChipField::kBlockHeight;
     float playerCenterY = blockTopY + player_->GetHeight() * 0.5f;
     player_->SetByTileIndex(mapChipField_, 0, topY, playerCenterY);
+
+    // === Fade 遮罩 Sprite ===
+// 1) 加载纹理（按你的 TextureManager 接口来写）
+    fadeTexIndex_ = TextureManager::GetInstance()->Load("white1x1.png");
+    // 2) 创建 Sprite
+    fadeSprite_ = Sprite::Create(fadeTexIndex_,{0.0f, 0.0f});
+    fadeSprite_->SetAnchorPoint({ 0.0f, 0.0f });
+    fadeSprite_->SetPosition({ 0.0f, 0.0f });
+
+    // ★ 使用 WinApp 的窗口常量
+    fadeSprite_->SetSize({ (float)KamataEngine::WinApp::kWindowWidth,
+                           (float)KamataEngine::WinApp::kWindowHeight });
+
+    fadeSprite_->SetColor({ 0.0f, 0.0f, 0.0f, 0.0f }); // 初始透明
 
     // 状態初期化
     animating_ = false;
@@ -270,7 +283,12 @@ void GameScene::Update() {
     }
     // ===== 快捷键：返回关卡选择 =====
     if (input_->TriggerKey(DIK_TAB)) {
-        exitToSelect_ = true;
+        if (!worldToggleInProgress_) {
+            worldToggleInProgress_ = true;  // 开始淡入
+            fadeOutPhase_ = true;
+            fadeAction_ = FadeAction::ExitToSelect;  // ★ 到全黑后再退出
+            playerLocked_ = true;                    // 过渡期间锁操作
+        }
         return; // 立即结束本帧，主循环会检测到并切回 LevelSelectScene
     }
 
@@ -278,10 +296,16 @@ void GameScene::Update() {
     ImGui::Begin("Game Info");
     ImGui::Text("Steps: %d / %d", remainingSteps_, initialSteps_);
     ImGui::End();
-    // ===== 按 R 重新开始 =====
+// ===== 按 R 重新开始（使用过渡）=====
     if (input_->TriggerKey(DIK_R)) {
-        LoadLevel(currentMapPath_);  // 重载当前关卡
-        return;                      // 立即返回，避免继续执行本帧其他逻辑
+        // 启动黑幕过渡
+        if (!worldToggleInProgress_) {
+            worldToggleInProgress_ = true;
+            fadeOutPhase_ = true;
+            fadeAction_ = FadeAction::ReloadToBright;  // ★ 关键
+            playerLocked_ = true;                      // 防误操作
+        }
+        return;                                  // 本帧到此为止
     }
     // ===== 检查是否“完全进入”Portal（必须停稳在该格中心）=====
     bool onPortalTile = false, fullyInsidePortal = false;
@@ -329,10 +353,12 @@ void GameScene::Update() {
 
         if (started) {
             playerLocked_ = true;                // 触发即上锁
-             isDarkSky_ = !isDarkSky_;
-             if (skydome_) {
-                 skydome_->SetModel(isDarkSky_ ? "darkSkydome" : "Skydome");
-             }
+            if (!worldToggleInProgress_) {
+                worldToggleInProgress_ = true;
+                fadeOutPhase_ = true;
+                // 不立即翻转，等“全黑”时再翻
+                fadeAction_ = FadeAction::ToggleWorld;
+            }
         }
     }
     wasOnPortal_ = fullyInsidePortal;            // 记录“完全在 Portal”的状态
@@ -408,10 +434,51 @@ void GameScene::Update() {
             );
         }
     }
+    // ===== 世界切换过渡（淡入→切换→淡出） =====
+    if (worldToggleInProgress_) {
+        if (fadeOutPhase_) {
+            fadeAlpha_ += fadeSpeed_;
+            if (fadeAlpha_ >= 1.0f) {
+                fadeAlpha_ = 1.0f;
 
+                switch (fadeAction_) {
+                case FadeAction::ToggleWorld:
+                    isDarkSky_ = !isDarkSky_;
+                    if (skydome_) { skydome_->SetModel(isDarkSky_ ? "darkSkydome" : "Skydome"); }
+                    break;
+
+                case FadeAction::ReloadToBright:
+                    isDarkSky_ = false;
+                    if (skydome_) { skydome_->SetModel("Skydome"); }
+                    LoadLevel(currentMapPath_);
+                    // 维持黑幕，准备淡出
+                    fadeAlpha_ = 1.0f;
+                    if (fadeSprite_) { fadeSprite_->SetColor({ 0,0,0,1 }); }
+                    break;
+
+                case FadeAction::ExitToSelect:                 // ★ 新增
+                    exitToSelect_ = true;                      // 通知主循环切到选关
+                    // 如果你希望“先黑屏再切场景”，这里可直接 return; 让主循环下一帧切走
+                    // 若想在本场景自己淡回，则保持现逻辑进入淡出阶段
+                    break;
+                }
+                fadeAction_ = FadeAction::ToggleWorld; // 复位为默认（可选）
+                fadeOutPhase_ = false;
+            }
+        }
+        else {
+            // 黑 -> 透明
+            fadeAlpha_ -= fadeSpeed_;
+            if (fadeAlpha_ <= 0.0f) {
+                fadeAlpha_ = 0.0f;
+                worldToggleInProgress_ = false;
+                playerLocked_ = false; // 过渡结束解锁
+            }
+        }
+    }
     // ===== 动画完成→解锁 =====
     const bool anyAnimatingNow = animating_ || anySpikeAnimating;
-    if (playerLocked_ && !anyAnimatingNow) {
+    if (playerLocked_ && !anyAnimatingNow && !worldToggleInProgress_) {
         playerLocked_ = false;
     }
 }
@@ -475,5 +542,10 @@ void GameScene::Draw() {
     // 前景スプライト描画
     Sprite::PreDraw(commandList);
     // ここで Portal 上のUIなどを描く場合は WorldToScreen を活用
+
+    if (fadeSprite_ && fadeAlpha_ > 0.0f) {
+        fadeSprite_->SetColor({ 0,0,0,fadeAlpha_ });
+        fadeSprite_->Draw();
+    }
     Sprite::PostDraw();
 }

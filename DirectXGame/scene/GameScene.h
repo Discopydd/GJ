@@ -16,12 +16,12 @@ public:
     ~GameScene(); // デストラクタ
 
 
-    void Initialize() override ; // 初期化
-    void Update() override ; // 毎フレーム更新
-    void Draw() override ; // 描画
+    void Initialize() override; // 初期化
+    void Update() override; // 毎フレーム更新
+    void Draw() override; // 描画
     void Finalize() override;
     void SetStartMap(const std::string& path) { startMapPath_ = path; }
-    bool IsSceneEnd() const { return exitToSelect_; } 
+    bool IsSceneEnd() const { return exitToSelect_; }
     // ===== Raised（浮いているブロック） =====
     struct RaisedBlock {
         WorldTransform* wt = nullptr;
@@ -55,7 +55,7 @@ private:
     MapChipField mapChipField_; // マップチップデータ
 
     Skydome* skydome_ = nullptr;
-    bool isDarkSky_ = false;  
+    bool isDarkSky_ = false;
     // 生成されたブロック（地面などの常設）
     std::vector<std::vector<WorldTransform*>> mapBlocks_;
 
@@ -93,7 +93,18 @@ private:
 
     std::string startMapPath_; // 从选关页传入
 
-    bool exitToSelect_ = false; 
+    bool exitToSelect_ = false;
 
     int PickInitialSteps(const std::string& path);
+
+    // ===== Fade 遮罩（Sprite）=====
+    Sprite* fadeSprite_ = nullptr;
+    uint32_t fadeTexIndex_ = 0;     // white.png 的纹理索引（按你的 TextureManager API 替换）
+    float   fadeAlpha_ = 0.0f;      // 0~1
+    float   fadeSpeed_ = 0.03f;     // 调过渡速度
+    bool    worldToggleInProgress_ = false; // 是否在做过渡
+    bool    fadeOutPhase_ = true;           // true: 透明→黑；false: 黑→透明
+
+    enum class FadeAction { ToggleWorld, ReloadToBright, ExitToSelect };
+    FadeAction fadeAction_ = FadeAction::ToggleWorld;
 };
