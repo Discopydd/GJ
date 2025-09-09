@@ -47,11 +47,15 @@ private:
     Camera camera_{};
     Model* model_ = nullptr;
     Model* obstacleModel_ = nullptr;
-
+    Model* darkModel_ = nullptr;
+    Model* darkObstacleModel_ = nullptr;
+    Model* switchModel_ = nullptr;
+    Model* goalModel_ = nullptr;
+    Model* darkSwitchModel_ = nullptr;
     MapChipField mapChipField_; // マップチップデータ
 
     Skydome* skydome_ = nullptr;
-
+    bool isDarkSky_ = false;  
     // 生成されたブロック（地面などの常設）
     std::vector<std::vector<WorldTransform*>> mapBlocks_;
 

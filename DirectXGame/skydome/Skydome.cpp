@@ -18,3 +18,9 @@ void Skydome::Draw() {
         model_->Draw(worldTransform_, *camera_);
     }
 }
+
+void Skydome::SetModel(const char* modelName)
+{
+    if (model_) { delete model_; model_ = nullptr; }
+    model_ = Model::CreateFromOBJ(modelName, true);
+}

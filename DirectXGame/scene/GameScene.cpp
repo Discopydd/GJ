@@ -50,7 +50,7 @@ void GameScene::GenerateBlocks() {
 
         for (uint32_t x = 0; x < mapChipField_.numBlockHorizontal_; x++) {
             MapChipType type = mapChipField_.GetMapChipTypeByIndex(x, y);
-            if (type == MapChipType::kBlock || type == MapChipType::kPortal || type == MapChipType::kRaised || type == MapChipType::kSpike|| type == MapChipType::kGoal|| type == MapChipType::kRaisedSpike) {
+            if (type == MapChipType::kBlock || type == MapChipType::kPortal || type == MapChipType::kRaised || type == MapChipType::kSpike || type == MapChipType::kGoal || type == MapChipType::kRaisedSpike) {
                 auto* wt = new WorldTransform();
                 wt->Initialize();
                 Vector3 pos2D = mapChipField_.GetMapChipPositionByIndex(x, y);
@@ -74,7 +74,7 @@ void GameScene::GenerateBlocks() {
                 else if (type == MapChipType::kSpike) {
                     auto* spike = new WorldTransform();
                     spike->Initialize();
-                    float lowY  = tileHalf + MapChipField::kBlockHeight;                       // 地面中心
+                    float lowY = tileHalf + MapChipField::kBlockHeight;                       // 地面中心
                     float highY = lowY + MapChipField::kBlockHeight * 5.0f; // 高空5格（可调）
 
                     // 初始：在高空（隐藏）
@@ -119,6 +119,12 @@ void GameScene::GenerateBlocks() {
     // モデル生成
     model_ = Model::CreateFromOBJ("cube", true);
     obstacleModel_ = Model::CreateFromOBJ("obstacle", true);
+    switchModel_ = Model::CreateFromOBJ("switch", true);
+    goalModel_ = Model::CreateFromOBJ("goal", true);
+    // ★ 新增：暗色版
+    darkModel_ = Model::CreateFromOBJ("darkCube", true);
+    darkObstacleModel_ = Model::CreateFromOBJ("darkObstacle", true);
+    darkSwitchModel_  = Model::CreateFromOBJ("darkSwitch", true);
 }
 
 void GameScene::LoadLevel(const std::string& path)
@@ -173,7 +179,11 @@ void GameScene::Finalize() {
     delete skydome_;         skydome_ = nullptr;
     delete model_;           model_ = nullptr;        // cube
     delete obstacleModel_;   obstacleModel_ = nullptr;
-
+    delete goalModel_;       goalModel_ = nullptr;        // cube
+    delete switchModel_;   switchModel_ = nullptr;
+    delete darkModel_;          darkModel_ = nullptr;
+    delete darkObstacleModel_;  darkObstacleModel_ = nullptr;
+    delete darkSwitchModel_;  darkSwitchModel_ = nullptr;
     // 生成物破棄
     DisposeRaised(raisedBlocks_);
     DisposeMapBlocks(mapBlocks_);
@@ -319,6 +329,10 @@ void GameScene::Update() {
 
         if (started) {
             playerLocked_ = true;                // 触发即上锁
+             isDarkSky_ = !isDarkSky_;
+             if (skydome_) {
+                 skydome_->SetModel(isDarkSky_ ? "darkSkydome" : "Skydome");
+             }
         }
     }
     wasOnPortal_ = fullyInsidePortal;            // 记录“完全在 Portal”的状态
@@ -415,25 +429,44 @@ void GameScene::Draw() {
     // 3Dオブジェクト描画
     Model::PreDraw();
     if (skydome_) skydome_->Draw();
+
+    Model* tileModel   = isDarkSky_ ? darkModel_         : model_;
+    Model* obstModel = isDarkSky_ ? darkObstacleModel_ : obstacleModel_;
+
+    Model* switchNow = (isDarkSky_ && darkSwitchModel_) ? darkSwitchModel_ : switchModel_;
     for (uint32_t y = 0; y < mapBlocks_.size(); y++) {
         for (uint32_t x = 0; x < mapBlocks_[y].size(); x++) {
             if (mapBlocks_[y][x]) {
                 mapBlocks_[y][x]->UpdateMatrix();
-                model_->Draw(*mapBlocks_[y][x], camera_);
+
+                MapChipType type = mapChipField_.GetMapChipTypeByIndex(x, y);
+
+                if (type == MapChipType::kPortal) {
+                    // 2 → 用 Switch 模型
+                    switchNow->Draw(*mapBlocks_[y][x], camera_);
+                }
+                else if (type == MapChipType::kGoal) {
+                    // 5 → 用 Goal 模型
+                    goalModel_->Draw(*mapBlocks_[y][x], camera_);
+                }
+                else {
+                    // 其他（普通方块等）
+                    tileModel->Draw(*mapBlocks_[y][x], camera_);
+                }
             }
         }
     }
     for (auto& rb : raisedBlocks_) {
         if (rb.wt) {
             rb.wt->UpdateMatrix();
-            obstacleModel_->Draw(*rb.wt, camera_);
+            obstModel->Draw(*rb.wt, camera_);
         }
     }
     // Spike（仅在显示时绘制 obstacle）
     for (auto& st : spikeTiles_) {
         if (st.wt) {
             st.wt->UpdateMatrix();
-            obstacleModel_->Draw(*st.wt, camera_);
+            obstModel->Draw(*st.wt, camera_);
         }
     }
     if (player_) player_->Draw();

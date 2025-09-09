@@ -18,7 +18,7 @@ public:
     // 可选：动态改缩放/相机
     void SetScale(float s) { worldTransform_.scale_ = { s, s, s }; }
     void SetCamera( KamataEngine::Camera* camera) { camera_ = camera; }
-
+    void SetModel(const char* modelName);
 private:
      KamataEngine::WorldTransform worldTransform_{};
      KamataEngine::Model* model_  = nullptr;
