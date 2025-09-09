@@ -13,6 +13,9 @@ public:
     void Update();
     void Draw();
     void SetInitialScene(IScene* scene) { SetNextScene(scene, /*useTransition=*/false); }
+
+    void SetLoadingTexture(const std::string& path) { loadingTexPath_ = path; needBuildLoading_ = true; }
+    void ShowLoading(bool on) { showLoading_ = on; }
 private:
     IScene* scene_ = nullptr;
 
@@ -28,7 +31,14 @@ private:
     float overlayAlpha_ = 0.0f;       // 0~1
     float overlaySpeed_ = 0.05f;      // 过渡速度（可调）
 
-    void EnsureOverlay_();            // 创建黑幕
-    void StartFadeOut_();             // 进入淡出
-    void DoSwitch_();                 // 真正删除旧场景并初始化新场景
+    KamataEngine::Sprite* loadingSprite_ = nullptr;
+    std::string loadingTexPath_ = "Loading.png"; // 默认资源路径（可改）
+    bool showLoading_ = false;                   // 是否显示 Loading（只在过渡中绘制）
+    bool needBuildLoading_ = true;               // 延迟创建贴图
+
+    void EnsureOverlay_();
+    void StartFadeOut_();
+    void DoSwitch_();
+    void EnsureLoading_();       // 
+    void DestroyLoading_();      //
 };

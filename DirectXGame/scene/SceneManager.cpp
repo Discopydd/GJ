@@ -10,6 +10,7 @@ SceneManager::~SceneManager() {
     if (scene_) { scene_->Finalize(); delete scene_; }
     if (pendingScene_) { delete pendingScene_; pendingScene_ = nullptr; }
     if (overlay_) { delete overlay_; overlay_ = nullptr; }
+    DestroyLoading_();
 }
 
 void SceneManager::EnsureOverlay_() {
@@ -20,7 +21,16 @@ void SceneManager::EnsureOverlay_() {
     overlay_->SetSize({ (float)WinApp::kWindowWidth, (float)WinApp::kWindowHeight });
     overlay_->SetColor({0,0,0,overlayAlpha_});
 }
-
+void SceneManager::EnsureLoading_() {
+    if (!needBuildLoading_) return;
+    DestroyLoading_();
+    uint32_t tex = TextureManager::Load(loadingTexPath_);
+    loadingSprite_ = Sprite::Create(tex, {0,0});
+    needBuildLoading_ = false;
+}
+void SceneManager::DestroyLoading_() {
+    if (loadingSprite_) { delete loadingSprite_; loadingSprite_ = nullptr; }
+}
 void SceneManager::SetNextScene(IScene* scene, bool useTransition) {
     if (pendingScene_) { delete pendingScene_; }
     pendingScene_ = scene;
@@ -37,13 +47,14 @@ void SceneManager::SetNextScene(IScene* scene, bool useTransition) {
         overlayAlpha_ = 0.0f;             // 不显示黑幕
         if (overlay_) overlay_->SetColor({ 0,0,0,0 });
         trans_ = Trans::Idle;             // 不进入 Fade 状态机
-
+        if (showLoading_) { EnsureLoading_(); }
         if (scene_) { scene_->Initialize(); }  // 直接初始化并显示
         return;
     }
 
     // ★ 正常路径：使用过渡
     if (trans_ == Trans::Idle) {
+        EnsureLoading_();
         StartFadeOut_();
     }
 }
@@ -85,6 +96,7 @@ void SceneManager::Update() {
         if (overlayAlpha_ <= 0.0f) {
             overlayAlpha_ = 0.0f;
             trans_ = Trans::Idle;
+            showLoading_ = false;
         }
         if (overlay_) overlay_->SetColor({0,0,0,overlayAlpha_});
         break;
@@ -113,4 +125,15 @@ void SceneManager::Draw() {
         overlay_->Draw();
     }
     Sprite::PostDraw();
+
+     if (showLoading_ && trans_ == Trans::Switch) {
+        EnsureLoading_();
+        Sprite::PreDraw(cl);
+        // 为了可见性：把 Loading 画在黑幕之上（顺序在 overlay 后）
+        if (loadingSprite_) {
+            loadingSprite_->SetSize({ (float)WinApp::kWindowWidth, (float)WinApp::kWindowHeight });
+            loadingSprite_->Draw();
+        }
+        Sprite::PostDraw();
+    }
 }
