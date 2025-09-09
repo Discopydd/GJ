@@ -43,7 +43,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
     SceneManager sceneManager;                        // ★ 有全局淡入淡出与加载期黑屏
     auto* title = new TitleScene();
     title->SetSceneManager(&sceneManager);           // 把 SM 指针传给首场景
-    sceneManager.SetNextScene(title);                // 从 Title 开始（会先淡入）
+    sceneManager.SetNextScene(title, /*useTransition=*/false);
 
     while (true) {
         if (KamataEngine::Update()) { break; }       // 窗口消息/结束处理

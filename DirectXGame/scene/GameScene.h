@@ -139,4 +139,7 @@ private:
     float locationBobAmpBlk_ = 0.5f;   // 漂浮幅度（以“格”为单位：0.5=半格，上下共1格）
     float locationRotSpeed_ = 0.03f;  // 每帧绕Y旋转（弧度）
 
+
+    uint32_t asdTextureHandle_ = 0;
+    Sprite* asdSprite_ = nullptr;
 };

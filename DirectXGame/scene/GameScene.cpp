@@ -289,6 +289,9 @@ void GameScene::Initialize() {
     // 生成当前步数的数字Sprites
     RebuildStepDigits_(remainingSteps_);
 
+
+    asdTextureHandle_ = TextureManager::Load("asd.png");
+    asdSprite_ = Sprite::Create(asdTextureHandle_, { 0, 0 });
     // 状態初期化
     animating_ = false;
     animDir_ = -1;
@@ -419,9 +422,16 @@ void GameScene::Update() {
     if (fullyInsideGoal && !goalReached_) {
         goalReached_ = true;
         playerLocked_ = true;
-        // ★ 改动：不再 LoadLevel，改为通知主循环回到选关页
-        exitToSelect_ = true;
-        return; // 本帧结束，让主循环感知到 IsSceneEnd() == true
+        if (sceneManager_) {
+            auto* next = new LevelSelectScene();
+            next->SetSceneManager(sceneManager_);   // 把 SM 指针传给下一个场景
+            sceneManager_->SetNextScene(next);      // ★ 交给 SceneManager 做全局淡出→切换→淡入
+        }
+        else {
+            // 兼容旧式 main（如果没用 SceneManager 的话）
+            exitToSelect_ = true;
+        }
+        return;
     }
     // ===== 推进 Raised 动画 =====
     if (animating_) {
@@ -619,6 +629,7 @@ void GameScene::Draw() {
     for (auto* s : stepDigitSprites_) {
         s->Draw();
     }
+    asdSprite_->Draw();
     if (fadeSprite_ && fadeAlpha_ > 0.0f) {
         fadeSprite_->SetColor({ 0,0,0,fadeAlpha_ });
         fadeSprite_->Draw();
