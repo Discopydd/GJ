@@ -149,4 +149,6 @@ private:
     bool     showClear_ = false; // 正在显示 clear.png
     int      clearFrame_ = 0;     // 已显示的帧数
     static inline const int kClearShowFrames = 90; // 1.5s @60fps
+
+    void FitCameraToWholeMap45(float marginBlocks = 1.0f, float pitchDeg = 45.0f, float yawDeg = 45.0f);
 };

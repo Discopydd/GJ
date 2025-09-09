@@ -17,8 +17,8 @@ void TitleScene::Initialize() {
     backTextureHandle_ = TextureManager::Load("back.png");
     backSprite_ = Sprite::Create(backTextureHandle_, { 0, 0 });
     startTextureHandle_ = TextureManager::Load("Start.png");
-    startSprite_ = Sprite::Create(startTextureHandle_, { 0, 360 });
-
+    startSprite_ = Sprite::Create(startTextureHandle_, { 0, 0 });
+    seClick_ = KamataEngine::Audio::GetInstance()->LoadWave("se/decide.mp3");
     frameCount_ = 0;
 }
 
@@ -36,6 +36,7 @@ void TitleScene::Update() {
         input_->IsTriggerMouse(0);
 
     if (go && sceneManager_) {
+        KamataEngine::Audio::GetInstance()->PlayWave(seClick_);
         auto* next = new LevelSelectScene();
         next->SetSceneManager(sceneManager_);          // 把 SM 指针传给下一场景
         sceneManager_->SetNextScene(next);             // ★ 交给 SceneManager 做全局淡出→切换→淡入

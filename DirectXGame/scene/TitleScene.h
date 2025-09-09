@@ -26,4 +26,5 @@ private:
     int frameCount_ = 0;
 
     SceneManager* sceneManager_ = nullptr;
+    uint32_t seClick_ = 0;
 };

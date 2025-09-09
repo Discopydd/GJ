@@ -22,7 +22,7 @@ void LevelSelectScene::Initialize() {
 
     backTextureHandle_ = TextureManager::Load("back.png");
     backSprite_ = Sprite::Create(backTextureHandle_, { 0, 0 });
-
+    seClick_ = KamataEngine::Audio::GetInstance()->LoadWave("se/decide.mp3");
     BuildButtons_();
 
 }
@@ -47,6 +47,7 @@ void LevelSelectScene::Update() {
             (mp.y >= b.pos.y) && (mp.y <= b.pos.y + b.size.y);
 
         if (hover && clicked && sceneManager_) {
+            KamataEngine::Audio::GetInstance()->PlayWave(seClick_);
             auto* next = new GameScene();
             next->SetStartMap(b.mapPath);
             next->SetSceneManager(sceneManager_);

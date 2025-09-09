@@ -47,4 +47,6 @@ private:
     void DestroyButtons_(); // 释放
 
     SceneManager* sceneManager_ = nullptr;
+
+    uint32_t seClick_ = 0;
 };

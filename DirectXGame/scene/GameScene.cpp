@@ -149,7 +149,7 @@ void GameScene::LoadLevel(const std::string& path)
     initialSteps_ = PickInitialSteps(currentMapPath_);
     mapChipField_.LoadMapChipCsv(currentMapPath_);
     GenerateBlocks();
-
+    FitCameraToWholeMap45(1.0f, 60.0f, 180.0f);
 
     // 重置玩家到起点（这里仍放最上行左侧）
     uint32_t topY = (mapChipField_.numBlockVertical_ > 0) ? (mapChipField_.numBlockVertical_ - 1) : 0;
@@ -171,11 +171,11 @@ int GameScene::PickInitialSteps(const std::string& path)
 {
     if (path.find("Resources/map/map_a.csv") != std::string::npos) return 10;
     if (path.find("Resources/map/map_b.csv") != std::string::npos) return 14;
-    if (path.find("Resources/map/map_c.csv") != std::string::npos) return 26;
-    if (path.find("Resources/map/map_d.csv") != std::string::npos) return 34;
-    if (path.find("Resources/map/map_e.csv") != std::string::npos) return 42;
-    if (path.find("Resources/map/map_f.csv") != std::string::npos) return 50;
-    if (path.find("Resources/map/map_g.csv") != std::string::npos) return 58;
+    if (path.find("Resources/map/map_c.csv") != std::string::npos) return 27;
+    if (path.find("Resources/map/map_d.csv") != std::string::npos) return 36;
+    if (path.find("Resources/map/map_e.csv") != std::string::npos) return 20;
+    if (path.find("Resources/map/map_f.csv") != std::string::npos) return 30;
+    if (path.find("Resources/map/map_g.csv") != std::string::npos) return 40;
 
     // 兼容你默认的单图用法
     if (path.find("Resources/map.csv") != std::string::npos)   return 10;
@@ -212,6 +212,66 @@ void GameScene::RebuildStepDigits_(int value)
     lastStepsShown_ = value;
 }
 
+void GameScene::FitCameraToWholeMap45(float marginBlocks, float pitchDeg, float yawDeg)
+{
+    // 地图整体尺寸（单位：世界坐标）
+    const float mapW = mapChipField_.numBlockHorizontal_ * MapChipField::kBlockWidth;
+    const float mapH = mapChipField_.numBlockVertical_ * MapChipField::kBlockHeight;
+
+    // 地图中心（X-Z 平面），Y 取地面上方一点
+    const float groundY = MapChipField::kBlockHeight * 0.5f; // 地砖中心高度
+    const Vector3 mapCenter = {
+        mapW * 0.5f,
+        groundY,
+        mapH * 0.5f
+    };
+
+    // 以 45° 俯视等距角度（Pitch=-45°, Yaw=+45°）
+    const float deg2rad = 3.1415926535f / 180.0f;
+    const float pitch = pitchDeg * deg2rad;
+    const float yaw = yawDeg * deg2rad;
+
+    camera_.rotation_ = { pitch, yaw, 0.0f };
+
+    // 估个“需要的距离”，按对角线 + 留白来算
+    const float marginW = marginBlocks * MapChipField::kBlockWidth;
+    const float marginH = marginBlocks * MapChipField::kBlockHeight;
+    const float wantW = mapW + marginW * 2.0f;
+    const float wantH = mapH + marginH * 2.0f;
+
+    // 因为我们固定 45° 俯视，经验上这样取距离比较稳：
+    // 让距离与较长边成比例，再乘个系数即可。
+    const float major = (std::max)(wantW, wantH);
+    const float distance = major * 1.2f; // 可按需要调系数（1.1～1.6）
+
+    // 由 yaw/pitch 反推出相机相对中心的方向（单位向量）
+    // 朝向是从相机指向中心，因此相机位置 = 中心 - dir * distance
+    const float cp = std::cos(pitch);
+    const float sp = std::sin(pitch);
+    const float cy = std::cos(yaw);
+    const float sy = std::sin(yaw);
+
+    // 视线方向（右手系，X 前右，Y 上，Z 前？你的世界里 Z 是“纵向”）
+    // 这里构造一个标准前向：在 XZ 平面朝 yaw，再向下俯 pitch
+    Vector3 forward = {
+        cp * sy,   // x
+        -sp,       // y（向下为负）
+        cp * cy    // z
+    };
+
+    // 相机位置：在 forward 的反方向拉开 distance
+    camera_.translation_ = {
+        mapCenter.x - forward.x * distance,
+        mapCenter.y - forward.y * distance,
+        mapCenter.z - forward.z * distance
+    };
+
+    // 轻微上抬，避免地面裁切（可选）
+    camera_.translation_.y += MapChipField::kBlockHeight * 0.5f;
+
+    camera_.UpdateMatrix();
+}
+
 GameScene::GameScene() {}
 
 GameScene::~GameScene() {
@@ -244,8 +304,8 @@ void GameScene::Initialize() {
     input_ = Input::GetInstance();
 
     camera_.Initialize();
-    camera_.translation_ = { -4.0f, 20.0f, 25.0f };
-    camera_.rotation_ = { 2.4f, -0.5f, 0.0f };
+    camera_.translation_ = { 2.5f, 25.0f, 20.0f };
+    camera_.rotation_ = { 2.2f, 0.0f, 0.0f };
     camera_.UpdateMatrix();
     skydome_ = new Skydome();
     skydome_->Initialize(&camera_, "Skydome");
@@ -259,7 +319,7 @@ void GameScene::Initialize() {
     initialSteps_ = PickInitialSteps(currentMapPath_);
     mapChipField_.LoadMapChipCsv(currentMapPath_);
     GenerateBlocks();
-
+    FitCameraToWholeMap45(/*marginBlocks=*/1.0f, /*pitchDeg=*/60.0f, /*yawDeg=*/180.0f);
     // プレイヤー初期化
     player_ = new Player();
     player_->Initialize(&camera_, &mapChipField_, "player");
