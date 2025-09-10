@@ -151,4 +151,24 @@ private:
     static inline const int kClearShowFrames = 90; // 1.5s @60fps
 
     void FitCameraToWholeMap45(float marginBlocks = 1.0f, float pitchDeg = 45.0f, float yawDeg = 45.0f);
+
+    uint32_t seClear_ = 0;
+    uint32_t sePortal_ = 0;
+    uint32_t portalVoice_ = 0;
+
+    // 渐隐控制
+    bool   portalFadingOut_ = false; // 是否正在淡出
+    float  portalVolume_ = 1.0f;  // 当前音量(0~1)
+    float  portalFadeSpeed_ = 0.03f; // 每帧降低多少音量(可调)
+
+    // ===== BGM =====
+    uint32_t bgmHandle_ = 0;   // 音源数据句柄
+    uint32_t bgmVoice_ = 0;   // 播放实例句柄（voice）
+    bool     bgmFadingOut_ = false;
+    float    bgmVolume_ = 1.0f;  // 0~1
+    float    bgmFadeSpeed_ = 0.02f; // 淡出速度(每帧减少多少)
+
+    // 切Scene时延迟到BGM淡出完成再切走
+    bool     sceneExitRequested_ = false;
+
 };

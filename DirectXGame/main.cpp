@@ -27,7 +27,7 @@ static void ApplyFullscreen(HWND hwnd, bool fullscreen, DWORD windowedStyle, con
 }
 
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
-    KamataEngine::Initialize(L"異界ダンジョン");
+    KamataEngine::Initialize(L"3049_異界ダンジョン");
 
     // ====== ESC 切换 全屏/窗口 的初始化（沿用你现有代码）======
     HWND hwnd = WinApp::GetInstance()->GetHwnd();

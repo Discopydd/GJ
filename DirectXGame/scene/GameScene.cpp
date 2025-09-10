@@ -150,7 +150,11 @@ void GameScene::LoadLevel(const std::string& path)
     mapChipField_.LoadMapChipCsv(currentMapPath_);
     GenerateBlocks();
     FitCameraToWholeMap45(1.0f, 60.0f, 180.0f);
-
+    if (portalVoice_ != 0) {
+        KamataEngine::Audio::GetInstance()->StopWave(portalVoice_);
+        portalVoice_ = 0;
+        portalFadingOut_ = false;
+    }
     // 重置玩家到起点（这里仍放最上行左侧）
     uint32_t topY = (mapChipField_.numBlockVertical_ > 0) ? (mapChipField_.numBlockVertical_ - 1) : 0;
     float blockTopY = MapChipField::kBlockHeight;
@@ -292,6 +296,18 @@ void GameScene::Finalize() {
     delete clearSprite_; clearSprite_ = nullptr;
     for (auto* s : stepDigitSprites_) { delete s; }
     stepDigitSprites_.clear();
+    if (portalVoice_ != 0) {
+        portalVoice_ = 0;
+        portalFadingOut_ = false;
+    }
+    // 兜底：切关/重载/析构时确保停止BGM
+    if (bgmVoice_ != 0) {
+        // 不再调用 Audio::StopWave，直接清零即可
+        bgmVoice_ = 0;
+    }
+    bgmFadingOut_ = false;
+    bgmVolume_ = 1.0f;
+
     // 生成物破棄
     DisposeRaised(raisedBlocks_);
     DisposeMapBlocks(mapBlocks_);
@@ -360,6 +376,15 @@ void GameScene::Initialize() {
     showClear_ = false;
     clearFrame_ = 0;
 
+    seClear_ = KamataEngine::Audio::GetInstance()->LoadWave("se/clear.mp3");
+    sePortal_ = KamataEngine::Audio::GetInstance()->LoadWave("se/popo.mp3");
+
+    // === BGM ===
+    bgmHandle_ = KamataEngine::Audio::GetInstance()->LoadWave("se/chiisana_otete.mp3");
+    bgmVoice_ = KamataEngine::Audio::GetInstance()->PlayWave(bgmHandle_, /*loop=*/true, /*volume=*/1.0f);
+    bgmVolume_ = 1.0f;
+    KamataEngine::Audio::GetInstance()->SetVolume(bgmVoice_, bgmVolume_);
+
     // 状態初期化
     animating_ = false;
     animDir_ = -1;
@@ -370,17 +395,8 @@ void GameScene::Initialize() {
 
     exitToSelect_ = false;
 }
-
 // 毎フレーム更新
 void GameScene::Update() {
-    // ===== 相机调试 UI =====
-    ImGui::Begin("Camera Controller");
-    static float pos[3], rot[3];
-    pos[0] = camera_.translation_.x; pos[1] = camera_.translation_.y; pos[2] = camera_.translation_.z;
-    rot[0] = camera_.rotation_.x;    rot[1] = camera_.rotation_.y;    rot[2] = camera_.rotation_.z;
-    if (ImGui::DragFloat3("Position", pos, 0.1f)) { camera_.translation_ = { pos[0], pos[1], pos[2] }; }
-    if (ImGui::DragFloat3("Rotation", rot, 0.01f)) { camera_.rotation_ = { rot[0], rot[1], rot[2] }; }
-    ImGui::End();
     camera_.UpdateMatrix();
     if (skydome_) skydome_->Update();
     // ===== 玩家：只有未上锁时才允许更新（避免动画期间操作）=====
@@ -410,16 +426,10 @@ void GameScene::Update() {
     }
     // ===== 快捷键：返回关卡选择 =====
     if (input_->TriggerKey(DIK_TAB)) {
-        auto* next = new LevelSelectScene();
-        next->SetSceneManager(sceneManager_); 
-        sceneManager_->SetNextScene(next);
+        bgmFadingOut_ = true;
+        sceneExitRequested_ = true;
         return;
     }
-
-    // === （可选）步数显示：ImGui ===
-    ImGui::Begin("Game Info");
-    ImGui::Text("Steps: %d / %d", remainingSteps_, initialSteps_);
-    ImGui::End();
     // ===== 按 R 重新开始（使用过渡）=====
     if (input_->TriggerKey(DIK_R)) {
         // 启动黑幕过渡
@@ -477,6 +487,16 @@ void GameScene::Update() {
 
         if (started) {
             playerLocked_ = true;                // 触发即上锁
+            if (portalVoice_ != 0) {
+                KamataEngine::Audio::GetInstance()->StopWave(portalVoice_);
+                portalVoice_ = 0;
+            }
+            // ★ 保存本次播放的 voice handle
+            portalVoice_ = KamataEngine::Audio::GetInstance()->PlayWave(sePortal_);
+            portalFadingOut_ = false;
+            portalVolume_ = 1.0f;
+            KamataEngine::Audio::GetInstance()->SetVolume(portalVoice_, portalVolume_);
+
             if (!worldToggleInProgress_) {
                 worldToggleInProgress_ = true;
                 fadeOutPhase_ = true;
@@ -493,7 +513,9 @@ void GameScene::Update() {
         // 1) 先显示通关叠加图 1.5 秒（不清屏）
         showClear_ = true;
         clearFrame_ = 0;
-
+        KamataEngine::Audio::GetInstance()->PlayWave(seClear_);
+          bgmFadingOut_ = true;
+          bgmFadeSpeed_ = 1.0f / static_cast<float>(kClearShowFrames);
         // 2) 先不切场景；计时结束后再交给 SceneManager 做带 Fade 的切换
         return;
     }
@@ -588,6 +610,13 @@ void GameScene::Update() {
                     isDarkSky_ = false;
                     if (skydome_) { skydome_->SetModel("Skydome"); }
                     LoadLevel(currentMapPath_);
+
+                    if (bgmVoice_ == 0 && bgmHandle_ != 0) {
+                        bgmVolume_ = 1.0f;  // 你在 LoadLevel 里也复位为 1.0f，这里保持一致
+                        bgmVoice_ = KamataEngine::Audio::GetInstance()->PlayWave(
+                            bgmHandle_, /*loop=*/true, /*volume=*/bgmVolume_);
+                        KamataEngine::Audio::GetInstance()->SetVolume(bgmVoice_, bgmVolume_);
+                    }
                     // 维持黑幕，准备淡出
                     fadeAlpha_ = 1.0f;
                     if (fadeSprite_) { fadeSprite_->SetColor({ 0,0,0,1 }); }
@@ -613,10 +642,15 @@ void GameScene::Update() {
             }
         }
     }
+
     // ===== 动画完成→解锁 =====
     const bool anyAnimatingNow = animating_ || anySpikeAnimating;
+    if (!anyAnimatingNow && portalVoice_ != 0 && !portalFadingOut_) {
+        portalFadingOut_ = true;
+    }
     if (playerLocked_ && !anyAnimatingNow && !worldToggleInProgress_) {
         playerLocked_ = false;
+
     }
     // ===== 通关叠加：计时 1.5 秒后切回选关（SceneManager 自带 Fade）=====
     if (showClear_) {
@@ -624,25 +658,57 @@ void GameScene::Update() {
         if (clearFrame_ >= kClearShowFrames) {
             showClear_ = false;  // 关闭叠加
             clearFrame_ = 0;
-
-            if (sceneManager_) {
-                auto* next = new LevelSelectScene();
-                next->SetSceneManager(sceneManager_);
-
-                // 使用 SceneManager 的过渡（淡出→切场→淡入）
-                sceneManager_->SetNextScene(next);
-            }
-            else {
-                // 兼容无 SceneManager 的旧逻辑
-                exitToSelect_ = true;
-            }
+            sceneExitRequested_ = true;
             return; // 本帧结束（避免继续处理别的逻辑）
         }
+    }
+    // ===== BGM 渐隐推进 & 渐隐完成后切场景 =====
+    if (bgmFadingOut_ && bgmVoice_ != 0) {
+        bgmVolume_ -= bgmFadeSpeed_;
+        if (bgmVolume_ <= 0.0f) {
+            bgmVolume_ = 0.0f;
+            KamataEngine::Audio::GetInstance()->SetVolume(bgmVoice_, bgmVolume_);
+            KamataEngine::Audio::GetInstance()->StopWave(bgmVoice_);
+            bgmVoice_ = 0;
+            bgmFadingOut_ = false;
+        }
+        else {
+            KamataEngine::Audio::GetInstance()->SetVolume(bgmVoice_, bgmVolume_);
+        }
+    }
+
+    // 如果已经请求离开Scene，并且BGM已淡出完（voice==0），再真正切场景
+    if (sceneExitRequested_ && bgmVoice_ == 0) {
+        if (sceneManager_) {
+            auto* next = new LevelSelectScene();
+            next->SetSceneManager(sceneManager_);
+            sceneManager_->SetNextScene(next); // 交给SceneManager做全局淡出→切→淡入
+        }
+        else {
+            exitToSelect_ = true; // 兼容无SceneManager的旧路径
+        }
+        sceneExitRequested_ = false;
+        return;
     }
 
     if (lastStepsShown_ != remainingSteps_) {
         RebuildStepDigits_(remainingSteps_);
     }
+    // ★ 渐隐推进：每帧降低音量，到0后真正停止
+    if (portalFadingOut_ && portalVoice_ != 0) {
+        portalVolume_ -= portalFadeSpeed_;
+        if (portalVolume_ <= 0.0f) {
+            portalVolume_ = 0.0f;
+            KamataEngine::Audio::GetInstance()->SetVolume(portalVoice_, portalVolume_); // 设到0
+            KamataEngine::Audio::GetInstance()->StopWave(portalVoice_);                 // 真正停止
+            portalVoice_ = 0;
+            portalFadingOut_ = false;
+        }
+        else {
+            KamataEngine::Audio::GetInstance()->SetVolume(portalVoice_, portalVolume_);
+        }
+    }
+
 }
 
 

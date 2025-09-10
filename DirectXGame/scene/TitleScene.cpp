@@ -1,5 +1,6 @@
 #include "TitleScene.h"
 using namespace KamataEngine;
+
 TitleScene::~TitleScene()
 {
 }
@@ -7,6 +8,10 @@ void TitleScene::Finalize() {
     delete titleSprite_;
     delete startSprite_;
     delete backSprite_;
+    if (bgmVoice_) {
+        KamataEngine::Audio::GetInstance()->StopWave(bgmVoice_);
+    }
+
 }
 
 void TitleScene::Initialize() {
@@ -19,6 +24,8 @@ void TitleScene::Initialize() {
     startTextureHandle_ = TextureManager::Load("Start.png");
     startSprite_ = Sprite::Create(startTextureHandle_, { 0, 0 });
     seClick_ = KamataEngine::Audio::GetInstance()->LoadWave("se/decide.mp3");
+    bgmHandle_ = KamataEngine::Audio::GetInstance()->LoadWave("se/select.mp3");
+    bgmVoice_ = KamataEngine::Audio::GetInstance()->PlayWave(bgmHandle_, true, bgmVolume_);
     frameCount_ = 0;
 }
 
@@ -37,11 +44,22 @@ void TitleScene::Update() {
 
     if (go && sceneManager_) {
         KamataEngine::Audio::GetInstance()->PlayWave(seClick_);
-        auto* next = new LevelSelectScene();
-        next->SetSceneManager(sceneManager_);          // 把 SM 指针传给下一场景
-        sceneManager_->SetNextScene(next);             // ★ 交给 SceneManager 做全局淡出→切换→淡入
-        return;
+       fadingOut_ = true;  // 开始淡出
     }
+    if (fadingOut_) {
+        bgmVolume_ -= 0.02f;  // 每帧降低音量
+        if (bgmVolume_ <= 0.0f) {
+            bgmVolume_ = 0.0f;
+            KamataEngine::Audio::GetInstance()->StopWave(bgmVoice_);
+            // 完全静音后再切场景
+            auto* next = new LevelSelectScene();
+            next->SetSceneManager(sceneManager_);
+            sceneManager_->SetNextScene(next);
+            return;
+        }
+        KamataEngine::Audio::GetInstance()->SetVolume(bgmVoice_, bgmVolume_);
+    }
+
 }
 
 void TitleScene::Draw() {

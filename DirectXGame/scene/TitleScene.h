@@ -27,4 +27,10 @@ private:
 
     SceneManager* sceneManager_ = nullptr;
     uint32_t seClick_ = 0;
+
+      // ==== BGM ====
+    uint32_t bgmHandle_ = 0;   // BGM 音源
+    uint32_t bgmVoice_ = 0;    // 播放中的句柄
+    float bgmVolume_ = 1.0f;   // 当前音量
+    bool fadingOut_ = false;   // 是否在淡出
 };
